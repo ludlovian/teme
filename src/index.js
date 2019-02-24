@@ -2,7 +2,7 @@
 
 function NOOP () {}
 
-const METHODS = 'map,scan,dedupe,dedupeWith,when'.split(',')
+const METHODS = 'map,scan,dedupe,dedupeWith,when,throttle,debounce'.split(',')
 
 class Stream {
   static create (...args) {
@@ -160,6 +160,55 @@ class Stream {
       }
       return prom
     }, initialPromise)
+  }
+
+  throttle (period) {
+    // returns a stream which updates at most every `period` ms
+    let timeout
+    let callDue
+    const update = () => {
+      // update this stream, and reset the callDue flag
+      ret.update(this.value)
+      callDue = false
+    }
+    const startTimer = () =>
+      setTimeout(() => {
+        // if we have called whilst the timer has been running, then
+        // do the throttled update, and set another timer going
+        if (callDue) {
+          update()
+          timeout = startTimer()
+        } else {
+          // no call has happened during the timer, so stop for now
+          timeout = null
+        }
+      }, period)
+    const ret = Stream.combine(() => {
+      // if we already have a timer going, then flag it needs to perform an update
+      if (timeout) {
+        callDue = true
+      } else {
+        // we do the `leading` edge call here, and then set a timer
+        update()
+        timeout = startTimer()
+      }
+    }, [this])
+    return ret
+  }
+
+  debounce (period) {
+    // create a stream which updates after a quiet period of `period` ms
+    let timeout
+    const update = () => {
+      ret.update(this.value)
+      timeout = null
+    }
+    const startTimer = () => {
+      if (timeout) clearTimeout(timeout)
+      timeout = setTimeout(update, period)
+    }
+    const ret = Stream.combine(startTimer, [this])
+    return ret
   }
 }
 

@@ -8,6 +8,8 @@ function isResolved (prom, timeout = 10) {
   })
 }
 
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
+
 test('create a stream', t => {
   const s = teme()
   t.is(typeof s, 'function')
@@ -169,4 +171,76 @@ test('when, starting unresolved', async t => {
   s1(4)
   t.is(s2(), p)
   t.true(await isResolved(p))
+})
+
+test('throttle', async t => {
+  const s1 = teme()
+  const s2 = s1.throttle(10)
+
+  // first call passed through
+  s1(1)
+  t.is(s2(), 1)
+
+  // second is not yet
+  s1(2)
+  t.not(s2(), s1())
+
+  await delay(15)
+  // passed through
+  t.is(s2(), s1())
+
+  // next is also delayed
+  s1(3)
+  t.not(s2(), s1())
+
+  await delay(10)
+  t.is(s2(), s1())
+
+  // full period of no activity, resets
+  await delay(10)
+  s1(4)
+  // so passed through on leading edge again
+  t.is(s2(), s1())
+})
+
+test('debounce', async t => {
+  const s1 = teme()
+  const s2 = s1.debounce(10)
+
+  // first update, not passed through
+  s1(1)
+  t.not(s2(), s1())
+
+  await delay(15)
+  t.is(s2(), s1())
+
+  // first update of several
+  s1(2)
+  t.is(s2(), 1)
+
+  // each time, no update is passed through as there has not
+  // been 10ms of quiet
+  await delay(5)
+  t.is(s2(), 1)
+  s1(3)
+  t.is(s2(), 1)
+
+  await delay(5)
+  t.is(s2(), 1)
+  s1(4)
+  t.is(s2(), 1)
+
+  await delay(5)
+  t.is(s2(), 1)
+  s1(5)
+  t.is(s2(), 1)
+
+  await delay(5)
+  t.is(s2(), 1)
+  s1(6)
+  t.is(s2(), 1)
+
+  // finally, 10ms of quiet, so the last update is passed through
+  await delay(15)
+  t.is(s2(), 6)
 })
