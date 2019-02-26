@@ -77,19 +77,29 @@ class Stream {
   // (stream,...,stream, self, Stream[] changed) => value
   // where `changed` is the list of Stream objects that have changed.
   //
-  static combine (fn, streams, initial) {
-    const derived = Stream.create(initial)
+  // options:
+  //  - skip - do not run the function initially
+  //  - initial - initial value (if .skip set)
+  //
+  static combine (fn, streams, opts = {}) {
+    const derived = Stream.create()
+    function recalcDerived (changed) {
+      const ret = fn(...[...streams, derived, changed])
+      if (ret != null) derived.update(ret)
+    }
+
+    if (opts.skip) {
+      derived.value = opts.initial
+    } else {
+      recalcDerived(streams)
+    }
+
     // any time any of the parent streams change, we re-run the
     // function.
     //
     // The unsubscribes are stored and used as as the detacher for this
     derived.detacher = callAll(
-      streams.map(stream =>
-        stream.subscribe(() => {
-          const ret = fn(...[...streams, derived, [stream]])
-          if (ret != null) derived.update(ret)
-        })
-      )
+      streams.map(stream => stream.subscribe(() => recalcDerived([stream])))
     )
 
     // Any time the `end`s of any of the parents are called, then we
@@ -101,37 +111,51 @@ class Stream {
     return derived
   }
 
-  map (fn, initial) {
-    return Stream.combine(s => fn(s.value), [this], initial)
+  map (fn, opts) {
+    return Stream.combine(s => fn(s.value), [this], opts)
   }
 
-  dedupeWith (cmp) {
-    let prev = this.value
-    return Stream.combine((source, target) => {
-      const val = source.value
-      if (!cmp(prev, val)) target.update(val)
-      prev = val
-    }, [this], this.value)
-  }
-
-  dedupe () {
-    return this.dedupeWith(identical)
+  dedupe (cmp, opts) {
+    if (cmp && typeof cmp === 'object') {
+      opts = cmp
+      cmp = undefined
+    }
+    cmp = cmp || identical
+    opts = opts || {}
+    let prev
+    if (!opts.skip) prev = this.value
+    return Stream.combine(
+      (source, target) => {
+        const val = source.value
+        if (!cmp(prev, val)) target.update(val)
+        prev = val
+      },
+      [this],
+      { skip: true, initial: prev }
+    )
   }
 
   static merge (...streams) {
-    const merged = Stream.combine((...args) => {
-      const changed = args.pop()
-      const self = args.pop()
-      changed.forEach(s => self.update(s.value))
-    }, streams)
+    const merged = Stream.combine(
+      (...args) => {
+        const changed = args.pop()
+        const self = args.pop()
+        changed.forEach(s => self.update(s.value))
+      },
+      streams,
+      { skip: true }
+    )
     return merged
   }
 
   scan (fn, accum) {
-    const derived = this.map(value => {
-      accum = fn(accum, value)
-      return accum
-    }, accum)
+    const derived = this.map(
+      value => {
+        accum = fn(accum, value)
+        return accum
+      },
+      { skip: true, initial: accum }
+    )
     return derived
   }
 
@@ -170,10 +194,13 @@ class Stream {
   changed () {
     // returns a promise which resolves when this stream next updates
     return new Promise(resolve => {
-      const monitor = this.map(x => {
-        resolve(x)
-        monitor.end.update(true)
-      })
+      const monitor = this.map(
+        x => {
+          resolve(x)
+          monitor.end.update(true)
+        },
+        { skip: true }
+      )
     })
   }
 
@@ -198,16 +225,20 @@ class Stream {
           timeout = null
         }
       }, period)
-    const ret = Stream.combine(() => {
-      // if we already have a timer going, then flag it needs to perform an update
-      if (timeout) {
-        callDue = true
-      } else {
-        // we do the `leading` edge call here, and then set a timer
-        update()
-        timeout = startTimer()
-      }
-    }, [this])
+    const ret = Stream.combine(
+      () => {
+        // if we already have a timer going, then flag it needs to perform an update
+        if (timeout) {
+          callDue = true
+        } else {
+          // we do the `leading` edge call here, and then set a timer
+          update()
+          timeout = startTimer()
+        }
+      },
+      [this],
+      { skip: true }
+    )
     return ret
   }
 
@@ -222,7 +253,7 @@ class Stream {
       if (timeout) clearTimeout(timeout)
       timeout = setTimeout(update, period)
     }
-    const ret = Stream.combine(startTimer, [this])
+    const ret = Stream.combine(startTimer, [this], { skip: true })
     return ret
   }
 }

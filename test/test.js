@@ -21,7 +21,7 @@ test('create a stream', t => {
 
 test('create dependent', t => {
   const s1 = teme()
-  const s2 = s1.map(x => x * 2, 5)
+  const s2 = s1.map(x => x * 2, { skip: true, initial: 5 })
   t.is(s2(), 5)
 
   s1(10)
@@ -68,11 +68,15 @@ test('end the child', t => {
 test('dependent that sometimes updates', t => {
   let count = 0
   const s1 = teme()
-  const s2 = teme.combine((s, self) => {
-    t.is(s, s1)
-    t.is(self, s2)
-    if (count++ % 2 === 0) return s() * 2
-  }, [s1])
+  const s2 = teme.combine(
+    (s, self) => {
+      t.is(s, s1)
+      t.is(self, s2)
+      if (count++ % 2 === 0) return s() * 2
+    },
+    [s1],
+    { skip: true }
+  )
 
   s1(2) // count = 0
   t.is(s2(), 4)
@@ -89,10 +93,13 @@ test('merging streams', t => {
   const s1 = teme()
   const s2 = teme()
   const s3 = teme.merge(s1, s2)
-  s3.map(v => {
-    count++
-    t.is(v, count * 10)
-  })
+  s3.map(
+    v => {
+      count++
+      t.is(v, count * 10)
+    },
+    { skip: true }
+  )
 
   t.plan(4)
   s1(10)
@@ -118,7 +125,7 @@ test('dedupe', t => {
   let count = 0
   const s1 = teme('foo')
   const s2 = s1.dedupe()
-  s2.map(() => count++)
+  s2.map(() => count++, { skip: true })
 
   t.is(s2(), 'foo')
   t.is(count, 0)
@@ -129,6 +136,24 @@ test('dedupe', t => {
   s1('bar')
   t.is(count, 1)
   t.is(s2(), 'bar')
+})
+
+test('dedupe, with options', t => {
+  const s1 = teme('foo')
+  const s2 = s1.dedupe({ skip: true })
+  t.is(s2(), undefined)
+  s1('foo')
+  t.is(s2(), 'foo')
+})
+
+test('dedupe, with compare function', t => {
+  const s1 = teme('foo')
+  const s2 = s1.dedupe((a, b) => typeof a === typeof b)
+  t.is(s2(), 'foo')
+  s1('bar')
+  t.is(s2(), 'foo')
+  s1(17)
+  t.is(s2(), 17)
 })
 
 test('when, starting resolved', async t => {
