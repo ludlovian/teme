@@ -21,7 +21,9 @@ test('create a stream', t => {
 
 test('create dependent', t => {
   const s1 = teme()
-  const s2 = s1.map(x => x * 2)
+  const s2 = s1.map(x => x * 2, 5)
+  t.is(s2(), 5)
+
   s1(10)
   t.is(s2(), 20)
 
@@ -201,6 +203,16 @@ test('throttle', async t => {
   s1(4)
   // so passed through on leading edge again
   t.is(s2(), s1())
+})
+
+test('changed', async t => {
+  const s1 = teme()
+  const p = s1.changed()
+  t.true(p instanceof Promise)
+  t.false(await isResolved(p))
+
+  s1(10)
+  t.true(await isResolved(p))
 })
 
 test('debounce', async t => {

@@ -2,7 +2,10 @@
 
 function NOOP () {}
 
-const METHODS = 'map,scan,dedupe,dedupeWith,when,throttle,debounce'.split(',')
+const STREAM_METHODS = 'map,scan,dedupe,dedupeWith,when,throttle,debounce'.split(
+  ','
+)
+const METHODS = ['changed']
 
 class Stream {
   static create (...args) {
@@ -24,8 +27,11 @@ class Stream {
     this.fn.stream = this
 
     // make function versions of the methods
-    METHODS.forEach(meth => {
+    STREAM_METHODS.forEach(meth => {
       this.fn[meth] = (...args) => this[meth](...args).fn
+    })
+    METHODS.forEach(meth => {
+      this.fn[meth] = (...args) => this[meth](...args)
     })
   }
 
@@ -71,8 +77,8 @@ class Stream {
   // (stream,...,stream, self, Stream[] changed) => value
   // where `changed` is the list of Stream objects that have changed.
   //
-  static combine (fn, streams) {
-    const derived = Stream.create()
+  static combine (fn, streams, initial) {
+    const derived = Stream.create(initial)
     // any time any of the parent streams change, we re-run the
     // function.
     //
@@ -95,8 +101,8 @@ class Stream {
     return derived
   }
 
-  map (fn) {
-    return Stream.combine(s => fn(s.value), [this])
+  map (fn, initial) {
+    return Stream.combine(s => fn(s.value), [this], initial)
   }
 
   dedupeWith (cmp) {
@@ -125,8 +131,7 @@ class Stream {
     const derived = this.map(value => {
       accum = fn(accum, value)
       return accum
-    }, [this])
-    derived.value = accum
+    }, accum)
     return derived
   }
 
@@ -160,6 +165,16 @@ class Stream {
       }
       return prom
     }, initialPromise)
+  }
+
+  changed () {
+    // returns a promise which resolves when this stream next updates
+    return new Promise(resolve => {
+      const monitor = this.map(x => {
+        resolve(x)
+        monitor.end.update(true)
+      })
+    })
   }
 
   throttle (period) {
@@ -222,12 +237,16 @@ function stream (...args) {
   return str.fn
 }
 
-function combine (fn, streamFuncs) {
-  return Stream.combine((...args) => {
-    const changed = args.pop()
-    const self = args.pop()
-    return fn(...[...args.map(s => s.fn), self.fn, changed.map(s => s.fn)])
-  }, streamFuncs.map(sf => sf.stream)).fn
+function combine (fn, streamFuncs, initial) {
+  return Stream.combine(
+    (...args) => {
+      const changed = args.pop()
+      const self = args.pop()
+      return fn(...[...args.map(s => s.fn), self.fn, changed.map(s => s.fn)])
+    },
+    streamFuncs.map(sf => sf.stream),
+    initial
+  ).fn
 }
 
 function merge (...streamFuncs) {
