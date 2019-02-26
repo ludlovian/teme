@@ -106,12 +106,12 @@ class Stream {
   }
 
   dedupeWith (cmp) {
-    let prev
+    let prev = this.value
     return Stream.combine((source, target) => {
       const val = source.value
       if (!cmp(prev, val)) target.update(val)
       prev = val
-    }, [this])
+    }, [this], this.value)
   }
 
   dedupe () {

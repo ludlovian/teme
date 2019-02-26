@@ -116,22 +116,18 @@ test('scan stream', t => {
 
 test('dedupe', t => {
   let count = 0
-  const s1 = teme()
+  const s1 = teme('foo')
   const s2 = s1.dedupe()
   s2.map(() => count++)
 
+  t.is(s2(), 'foo')
   t.is(count, 0)
 
   s1('foo')
-  t.is(count, 1)
-  t.is(s2(), 'foo')
-
-  s1('foo')
-  t.is(count, 1)
-  t.is(s2(), 'foo')
+  t.is(count, 0)
 
   s1('bar')
-  t.is(count, 2)
+  t.is(count, 1)
   t.is(s2(), 'bar')
 })
 
