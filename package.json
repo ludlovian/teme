@@ -1,6 +1,6 @@
 {
   "name": "teme",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Stream/observables",
   "source": "src/index.js",
   "main": "dist/index.js",
