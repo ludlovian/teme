@@ -2,10 +2,19 @@
 
 function NOOP () {}
 
-const STREAM_METHODS = 'map,scan,dedupe,dedupeWith,when,throttle,debounce'.split(
-  ','
-)
-const METHODS = ['changed']
+// methods which return a stream, so the function versions must return
+// the function version of the stream
+const STREAM_METHODS = [
+  'map',
+  'scan',
+  'dedupe',
+  'dedupeWith',
+  'when',
+  'throttle',
+  'debounce'
+]
+// other methods copied verbatimn to the function version
+const METHODS = ['changed', 'subscribe']
 
 class Stream {
   static create (...args) {

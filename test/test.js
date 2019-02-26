@@ -19,6 +19,24 @@ test('create a stream', t => {
   t.is(s(), 'foo')
 })
 
+test('subscribe', t => {
+  const s = teme()
+  let last
+  const unsub = s.subscribe(x => {
+    last = x
+  })
+
+  s(1)
+  t.is(last, 1)
+
+  s(2)
+  t.is(last, 2)
+
+  unsub()
+  s(3)
+  t.is(last, 2)
+})
+
 test('create dependent', t => {
   const s1 = teme()
   const s2 = s1.map(x => x * 2, { skip: true, initial: 5 })
