@@ -1,128 +1,118 @@
 'use strict'
 
-function NOOP () {}
+const sym =
+  typeof Symbol === 'function'
+    ? Symbol
+    : /* istanbul ignore next */ x => '$teme$_' + x
 
-// methods which return a stream, so the function versions must return
-// the function version of the stream
-const STREAM_METHODS = [
-  'map',
-  'scan',
-  'dedupe',
-  'dedupeWith',
-  'when',
-  'throttle',
-  'debounce'
-]
-// other methods copied verbatimn to the function version
-const METHODS = ['changed', 'subscribe']
+const kValue = sym('value')
+const kNotify = sym('notify')
+const kDetacher = sym('detacher')
 
-class Stream {
-  static create (...args) {
-    return new Stream(...args)
-  }
+// The main entry point for source streams (as opposed to derived ones)
+//
+// A stream is a function (acting as a get/setter), but inheriting
+// prototypically from Stream
+//
+export default function Stream (v) {
+  const s = createStream(v)
+  addEndStream(s)
+  return s
+}
 
-  constructor (v) {
-    // current value of the stream
-    this.value = v
-    // notify callbacks to run on change
-    this.notify = new Set()
-    // fn which detaches this stream from its parents
-    this.detacher = NOOP
-
-    // function version of the stream. Call with no args
-    // to get current value. Or with args to set.
-    this.fn = this.update.bind(this)
-    // to map back from the function to the object
-    this.fn.stream = this
-
-    // make function versions of the methods
-    STREAM_METHODS.forEach(meth => {
-      this.fn[meth] = (...args) => this[meth](...args).fn
-    })
-    METHODS.forEach(meth => {
-      this.fn[meth] = (...args) => this[meth](...args)
-    })
-  }
-
-  subscribe (fn) {
-    this.notify.add(fn)
-    return () => this.notify.delete(fn)
-  }
-
-  endStream () {
-    this.notify.clear()
-    this.detacher()
-    this.detacher = NOOP
-  }
-
-  addEnd () {
-    // and end stream is a stream which, if updated, ends the stream
-    // (along with itself)
-    this.end = Stream.create()
-    this.end.subscribe(() => {
-      this.end.endStream()
-      this.endStream()
-    })
-    // the fn version of the stream also has an end, which is the fn version
-    // of `stream.end`
-    this.fn.end = this.end.fn
-  }
-
-  update (v) {
+// Constructs a stream function, setting its own proerties and prototype
+function createStream (value) {
+  function stream () {
     if (arguments.length !== 0) {
-      this.value = v
-      // work off a copy as some notifieds might change this
-      // as we are iterating (e.g. ends)
-      const notifies = Array.from(this.notify)
-      notifies.forEach(f => f(v))
+      const value = arguments[0]
+      stream[kValue] = value
+      // the list of notifies is created as a separate array, as some
+      // of the notify callbacks will update/delete the notify list as
+      // we are traversing it
+      const notifies = Array.from(stream[kNotify])
+      notifies.forEach(f => f(value))
     }
-    return this.value
+    return stream[kValue]
   }
 
-  // creates a new Stream which is derived from applying a function
-  // to a list of (upstream) Streams
-  //
-  // The function has signature
-  // (stream,...,stream, self, Stream[] changed) => value
-  // where `changed` is the list of Stream objects that have changed.
-  //
-  // options:
-  //  - skip - do not run the function initially
-  //  - initial - initial value (if .skip set)
-  //
-  static combine (fn, streams, opts = {}) {
-    const derived = Stream.create()
-    function recalcDerived (changed) {
-      const ret = fn(...[...streams, derived, changed])
-      if (ret != null) derived.update(ret)
-    }
+  Object.defineProperties(stream, {
+    [kValue]: { value, configurable: true, writable: true },
+    [kNotify]: { value: new Set(), configurable: true, writable: true },
+    [kDetacher]: { value: new Set(), configurable: true, writable: true }
+  })
+  Object.setPrototypeOf(stream, Stream.prototype)
+  return stream
+}
 
-    if (opts.skip) {
-      derived.value = opts.initial
-    } else {
-      recalcDerived(streams)
-    }
+// adds a '.end' stream to a stream, setting up the notifies
+function addEndStream (s) {
+  s.end = createStream()
+  s.end.subscribe(() => {
+    endStream(s.end)
+    endStream(s)
+  })
+}
 
-    // any time any of the parent streams change, we re-run the
-    // function.
-    //
-    // The unsubscribes are stored and used as as the detacher for this
-    derived.detacher = callAll(
-      streams.map(stream => stream.subscribe(() => recalcDerived([stream])))
-    )
+function endStream (s) {
+  s[kNotify].clear()
+  Array.from(s[kDetacher]).forEach(f => f())
+  s[kDetacher].clear()
+}
 
-    // Any time the `end`s of any of the parents are called, then we
-    // call our own `end`. The unsubs again form the detacher for the `end`
-    derived.addEnd()
-    derived.end.detacher = callAll(
-      streams.map(stream => stream.end.subscribe(x => derived.end.update(x)))
-    )
-    return derived
+// The workhorse for all derived streams
+//
+Stream.combine = function combine (fn, streams, opts = {}) {
+  const derived = createStream()
+  addEndStream(derived)
+
+  function recalcDerived (changed) {
+    const ret = fn(...[...streams, derived, changed])
+    if (ret != null) derived(ret)
   }
+
+  if (opts.skip) {
+    derived(opts.initial)
+  } else {
+    recalcDerived(streams)
+  }
+
+  streams.forEach(stream => {
+    // if the upstream updates, then we re-derive
+    derived[kDetacher].add(stream.subscribe(() => recalcDerived([stream])))
+    // if the upstream ends, then so do we
+    derived.end[kDetacher].add(stream.end.subscribe(x => derived.end(x)))
+  })
+  return derived
+}
+
+// common methods for all streams
+Stream.prototype = {
+  subscribe (fn) {
+    this[kNotify].add(fn)
+    return () => this[kNotify].delete(fn)
+  },
 
   map (fn, opts) {
-    return Stream.combine(s => fn(s.value), [this], opts)
-  }
+    return Stream.combine(s => fn(s()), [this], opts)
+  },
+
+  clone () {
+    return this.map(x => x)
+  },
+
+  merge (...streams) {
+    return Stream.merge(...[this, ...streams])
+  },
+
+  scan (fn, accum) {
+    return this.map(
+      value => {
+        accum = fn(accum, value)
+        return accum
+      },
+      { skip: true, initial: accum }
+    )
+  },
 
   dedupe (cmp, opts) {
     if (cmp && typeof cmp === 'object') {
@@ -132,54 +122,27 @@ class Stream {
     cmp = cmp || identical
     opts = opts || {}
     let prev
-    if (!opts.skip) prev = this.value
+    if (!opts.skip) prev = this()
     return Stream.combine(
       (source, target) => {
-        const val = source.value
-        if (!cmp(prev, val)) target.update(val)
+        const val = source()
+        if (!cmp(prev, val)) target(val)
         prev = val
       },
       [this],
       { skip: true, initial: prev }
     )
-  }
-
-  static merge (...streams) {
-    const merged = Stream.combine(
-      (...args) => {
-        const changed = args.pop()
-        const self = args.pop()
-        changed.forEach(s => self.update(s.value))
-      },
-      streams,
-      { skip: true }
-    )
-    return merged
-  }
-
-  scan (fn, accum) {
-    const derived = this.map(
-      value => {
-        accum = fn(accum, value)
-        return accum
-      },
-      { skip: true, initial: accum }
-    )
-    return derived
-  }
+  },
 
   when (fn) {
-    // return a stream of promises which resolve when the condition
-    // is true
     let resolver
     let isResolved
     const freshPromise = () =>
       new Promise(resolve => {
         resolver = resolve
       })
-
     const initialPromise = freshPromise()
-    if (fn(this.value)) {
+    if (fn(this())) {
       isResolved = true
       resolver()
     }
@@ -198,104 +161,98 @@ class Stream {
       }
       return prom
     }, initialPromise)
-  }
+  },
 
   changed () {
-    // returns a promise which resolves when this stream next updates
     return new Promise(resolve => {
-      const monitor = this.map(
-        x => {
-          resolve(x)
-          monitor.end.update(true)
-        },
-        { skip: true }
-      )
+      const unsub = this.subscribe(x => {
+        resolve(x)
+        unsub()
+      })
     })
-  }
+  },
 
   throttle (period) {
-    // returns a stream which updates at most every `period` ms
     let timeout
     let callDue
     const update = () => {
-      // update this stream, and reset the callDue flag
-      ret.update(this.value)
+      derived(this())
       callDue = false
     }
     const startTimer = () =>
       setTimeout(() => {
-        // if we have called whilst the timer has been running, then
-        // do the throttled update, and set another timer going
         if (callDue) {
           update()
           timeout = startTimer()
         } else {
-          // no call has happened during the timer, so stop for now
           timeout = null
         }
       }, period)
-    const ret = Stream.combine(
+    const derived = Stream.combine(
       () => {
-        // if we already have a timer going, then flag it needs to perform an update
         if (timeout) {
           callDue = true
         } else {
-          // we do the `leading` edge call here, and then set a timer
-          update()
+          update() // leading edge
           timeout = startTimer()
         }
       },
       [this],
       { skip: true }
     )
-    return ret
-  }
+    return derived
+  },
 
   debounce (period) {
-    // create a stream which updates after a quiet period of `period` ms
     let timeout
     const update = () => {
-      ret.update(this.value)
+      derived(this())
       timeout = null
     }
     const startTimer = () => {
       if (timeout) clearTimeout(timeout)
       timeout = setTimeout(update, period)
     }
-    const ret = Stream.combine(startTimer, [this], { skip: true })
-    return ret
+    const derived = Stream.combine(startTimer, [this], { skip: true })
+    return derived
   }
 }
 
-function callAll (cbs) {
-  return () => cbs.forEach(f => f())
-}
-
-function stream (...args) {
-  const str = Stream.create(...args)
-  str.addEnd()
-  return str.fn
-}
-
-function combine (fn, streamFuncs, initial) {
+Stream.merge = function merge (...streams) {
   return Stream.combine(
     (...args) => {
       const changed = args.pop()
       const self = args.pop()
-      return fn(...[...args.map(s => s.fn), self.fn, changed.map(s => s.fn)])
+      changed.forEach(s => self(s()))
     },
-    streamFuncs.map(sf => sf.stream),
-    initial
-  ).fn
+    streams,
+    { skip: true }
+  )
 }
 
-function merge (...streamFuncs) {
-  return Stream.merge(...streamFuncs.map(sf => sf.stream)).fn
+Stream.fromPromise = function fromPromise (p) {
+  const s = Stream()
+  p.then(
+    result => {
+      s(result)
+      s.end(true)
+    },
+    reason => {
+      if (!(reason instanceof Error)) {
+        const err = new Error('Rejected promise')
+        err.promise = p
+        err.reason = reason
+        reason = err
+      }
+      s(reason)
+      s.end(true)
+    }
+  )
+  return s
 }
+
+Object.setPrototypeOf(Stream.prototype, Function.prototype)
 
 function identical (a, b) {
   return a === b
 }
-
-Object.assign(stream, { combine, merge })
-export default stream

@@ -106,11 +106,21 @@ test('dependent that sometimes updates', t => {
   t.is(s2(), 6)
 })
 
+test('clone a stream', t => {
+  const s1 = teme()
+  const s2 = s1.clone()
+  s1(1)
+  t.is(s2(), 1)
+
+  s1(2)
+  t.is(s2(), 2)
+})
+
 test('merging streams', t => {
   let count = 0
   const s1 = teme()
   const s2 = teme()
-  const s3 = teme.merge(s1, s2)
+  const s3 = s1.merge(s2)
   s3.map(
     v => {
       count++
@@ -124,6 +134,43 @@ test('merging streams', t => {
   s2(20)
   s1(30)
   s2(40)
+})
+
+test('fromPromise', async t => {
+  let _resolve
+  let _reject
+  let p = new Promise(resolve => {
+    _resolve = resolve
+  })
+
+  let s = teme.fromPromise(p)
+  t.falsy(s())
+  _resolve('foo')
+  await s.changed()
+  t.is(s(), 'foo')
+
+  p = new Promise((resolve, reject) => {
+    _reject = reject
+  })
+  s = teme.fromPromise(p)
+  t.falsy(s())
+
+  let e = new Error('oops')
+  _reject(e)
+  await s.changed()
+  t.is(s(), e)
+
+  p = new Promise((resolve, reject) => {
+    _reject = reject
+  })
+  s = teme.fromPromise(p)
+  t.falsy(s())
+  _reject('bar')
+  await s.changed()
+  e = s()
+  t.true(e instanceof Error)
+  t.is(e.promise, p)
+  t.is(e.reason, 'bar')
 })
 
 test('scan stream', t => {
