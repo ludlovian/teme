@@ -67,9 +67,17 @@ function setStreamValue (stream, value) {
   }
 }
 
+// getDescendants
+//
+// perofrms a topological search to find all descendants of the given stream,
+// returning them in order than they should be updated - from most senior
+// (parent-like) to most junior (child-like)
 function getDescendants (root) {
   const result = []
   const seen = new Set()
+  // visit actuall creates the array from junior to senior order, processing
+  // the children before adding the current node. Finally we have to reverse
+  // this array to make it senior-to-junior
   function visit (stream) {
     if (seen.has(stream)) return
     seen.add(stream)
