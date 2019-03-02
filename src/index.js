@@ -9,7 +9,6 @@ const kValue = sym('value')
 const kParents = sym('parents')
 const kChildren = sym('children')
 const kFunction = sym('function')
-function NOOP () {}
 
 // The main entry point for source streams (as opposed to derived ones)
 //
@@ -37,7 +36,7 @@ function createStream (value) {
     [kValue]: { value, configurable: true, writable: true },
     [kChildren]: { value: new Set(), configurable: true, writable: true },
     [kParents]: { value: [], configurable: true, writable: true },
-    [kFunction]: { value: NOOP, configurable: true, writable: true }
+    [kFunction]: { value: undefined, configurable: true, writable: true }
   })
   Object.setPrototypeOf(stream, Stream.prototype)
   return stream
