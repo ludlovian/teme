@@ -106,6 +106,42 @@ test('dependent that sometimes updates', t => {
   t.is(s2(), 6)
 })
 
+test('diamond dependency', t => {
+  // S1 -> S2 -> S3
+  //  \           \
+  //   +---------> S4
+  //
+  // When S1 upates, S4, should only update once,
+  // with both S1 nd S3 in changed
+  //
+  // S5 -> S6 is an unrelated chain updated as part of S4.
+  //
+  const s1 = teme()
+  const s2 = s1.clone()
+  const s3 = s2.clone()
+  let count = 0
+  const s4 = teme.combine(
+    (s1, s3, s4, changed) => {
+      t.is(count, 0)
+      count++
+      t.is(changed.length, 2)
+      t.true(changed.indexOf(s1) !== -1)
+      t.true(changed.indexOf(s3) !== -1)
+      s5(3 * s1())
+      return s1() + s3()
+    },
+    [s1, s3],
+    { skip: true }
+  )
+  const s5 = teme()
+  const s6 = s5.clone()
+
+  s1(1)
+  t.is(s4(), 2)
+  t.is(s6(), 3)
+  t.is(count, 1)
+})
+
 test('clone a stream', t => {
   const s1 = teme()
   const s2 = s1.clone()
@@ -263,7 +299,7 @@ test('when, starting unresolved', async t => {
 
 test('throttle', async t => {
   const s1 = teme()
-  const s2 = s1.throttle(10)
+  const s2 = s1.throttle(100)
 
   // first call passed through
   s1(1)
@@ -273,7 +309,7 @@ test('throttle', async t => {
   s1(2)
   t.not(s2(), s1())
 
-  await delay(15)
+  await delay(150)
   // passed through
   t.is(s2(), s1())
 
@@ -281,11 +317,11 @@ test('throttle', async t => {
   s1(3)
   t.not(s2(), s1())
 
-  await delay(10)
+  await delay(100)
   t.is(s2(), s1())
 
   // full period of no activity, resets
-  await delay(10)
+  await delay(100)
   s1(4)
   // so passed through on leading edge again
   t.is(s2(), s1())
@@ -303,13 +339,13 @@ test('changed', async t => {
 
 test('debounce', async t => {
   const s1 = teme()
-  const s2 = s1.debounce(10)
+  const s2 = s1.debounce(100)
 
   // first update, not passed through
   s1(1)
   t.not(s2(), s1())
 
-  await delay(15)
+  await delay(150)
   t.is(s2(), s1())
 
   // first update of several
@@ -317,28 +353,28 @@ test('debounce', async t => {
   t.is(s2(), 1)
 
   // each time, no update is passed through as there has not
-  // been 10ms of quiet
-  await delay(5)
+  // been 100ms of quiet
+  await delay(50)
   t.is(s2(), 1)
   s1(3)
   t.is(s2(), 1)
 
-  await delay(5)
+  await delay(50)
   t.is(s2(), 1)
   s1(4)
   t.is(s2(), 1)
 
-  await delay(5)
+  await delay(50)
   t.is(s2(), 1)
   s1(5)
   t.is(s2(), 1)
 
-  await delay(5)
+  await delay(50)
   t.is(s2(), 1)
   s1(6)
   t.is(s2(), 1)
 
-  // finally, 10ms of quiet, so the last update is passed through
-  await delay(15)
+  // finally, 100ms of quiet, so the last update is passed through
+  await delay(150)
   t.is(s2(), 6)
 })

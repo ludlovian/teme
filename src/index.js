@@ -6,8 +6,10 @@ const sym =
     : /* istanbul ignore next */ x => '$teme$_' + x
 
 const kValue = sym('value')
-const kNotify = sym('notify')
-const kDetacher = sym('detacher')
+const kParents = sym('parents')
+const kChildren = sym('children')
+const kFunction = sym('function')
+function NOOP () {}
 
 // The main entry point for source streams (as opposed to derived ones)
 //
@@ -16,7 +18,9 @@ const kDetacher = sym('detacher')
 //
 export default function Stream (v) {
   const s = createStream(v)
-  addEndStream(s)
+  s.end = createStream(false)
+  // special link between stream and its `.end`
+  s.end[kChildren].add(s)
   return s
 }
 
@@ -24,72 +28,93 @@ export default function Stream (v) {
 function createStream (value) {
   function stream () {
     if (arguments.length !== 0) {
-      const value = arguments[0]
-      stream[kValue] = value
-      // the list of notifies is created as a separate array, as some
-      // of the notify callbacks will update/delete the notify list as
-      // we are traversing it
-      const notifies = Array.from(stream[kNotify])
-      notifies.forEach(f => f(value))
+      setStreamValue(stream, arguments[0])
     }
     return stream[kValue]
   }
 
   Object.defineProperties(stream, {
     [kValue]: { value, configurable: true, writable: true },
-    [kNotify]: { value: new Set(), configurable: true, writable: true },
-    [kDetacher]: { value: new Set(), configurable: true, writable: true }
+    [kChildren]: { value: new Set(), configurable: true, writable: true },
+    [kParents]: { value: [], configurable: true, writable: true },
+    [kFunction]: { value: NOOP, configurable: true, writable: true }
   })
   Object.setPrototypeOf(stream, Stream.prototype)
   return stream
 }
 
-// adds a '.end' stream to a stream, setting up the notifies
-function addEndStream (s) {
-  s.end = createStream()
-  s.end.subscribe(() => {
-    endStream(s.end)
-    endStream(s)
+let updates
+
+function setStreamValue (stream, value) {
+  const topUpdate = updates == null
+  if (topUpdate) updates = getDescendants(stream)
+
+  stream[kValue] = value
+  Array.from(stream[kChildren]).forEach(child => {
+    if (child.end === stream) return endStream(child)
+    const update = updates.find(u => u.stream === child)
+    if (!update) return updates.push({ stream: child, changed: [stream] })
+    update.changed.push(stream)
   })
+
+  if (topUpdate) {
+    for (let update = updates.shift(); update; update = updates.shift()) {
+      if (update.changed.length !== 0) {
+        recalculateStream(update.stream, update.changed)
+      }
+    }
+    updates = undefined
+  }
 }
 
-function endStream (s) {
-  s[kNotify].clear()
-  Array.from(s[kDetacher]).forEach(f => f())
-  s[kDetacher].clear()
+function getDescendants (root) {
+  const result = []
+  const seen = new Set()
+  function visit (stream) {
+    if (seen.has(stream)) return
+    seen.add(stream)
+    stream[kChildren].forEach(visit)
+    result.push({ stream, changed: [] })
+  }
+  visit(root)
+  return result.reverse()
+}
+
+function recalculateStream (stream, changed) {
+  const args = [...stream[kParents], stream, changed]
+  const ret = stream[kFunction](...args)
+  if (ret != null) setStreamValue(stream, ret)
+}
+
+function endStream (stream) {
+  // disconnect from parents
+  stream[kParents].forEach(parent => parent[kChildren].delete(stream))
+  stream[kParents] = []
+  stream.end[kParents] = []
+
+  // set .end to true
+  stream.end[kValue] = true
+
+  // end all downstream from me too
+  Array.from(stream[kChildren]).forEach(endStream)
 }
 
 // The workhorse for all derived streams
 //
 Stream.combine = function combine (fn, streams, opts = {}) {
-  const derived = createStream()
-  addEndStream(derived)
-
-  function recalcDerived (changed) {
-    const ret = fn(...[...streams, derived, changed])
-    if (ret != null) derived(ret)
-  }
-
-  if (opts.skip) {
-    derived(opts.initial)
-  } else {
-    recalcDerived(streams)
-  }
-
-  streams.forEach(stream => {
-    // if the upstream updates, then we re-derive
-    derived[kDetacher].add(stream.subscribe(() => recalcDerived([stream])))
-    // if the upstream ends, then so do we
-    derived.end[kDetacher].add(stream.end.subscribe(x => derived.end(x)))
-  })
+  const derived = Stream(opts.initial)
+  derived[kFunction] = fn
+  derived[kParents] = streams.slice()
+  streams.forEach(parent => parent[kChildren].add(derived))
+  if (!opts.skip) recalculateStream(derived, streams)
   return derived
 }
 
 // common methods for all streams
 Stream.prototype = {
   subscribe (fn) {
-    this[kNotify].add(fn)
-    return () => this[kNotify].delete(fn)
+    const derived = this.map(fn, { skip: true })
+    return () => derived.end(true)
   },
 
   map (fn, opts) {
