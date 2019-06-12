@@ -1,2 +1,243 @@
-var n,t="function"==typeof Symbol?Symbol:function(n){return"$teme$_"+n},r=t("value"),e=t("parents"),i=t("children"),o=t("function");function u(n){var t=c(n);return t.end=c(!1),t.end[i].add(t),t}function c(n){var t;function c(){return 0!==arguments.length&&f(c,arguments[0]),c[r]}return Object.defineProperties(c,((t={})[r]={value:n,configurable:!0,writable:!0},t[i]={value:new Set,configurable:!0,writable:!0},t[e]={value:[],configurable:!0,writable:!0},t[o]={value:void 0,configurable:!0,writable:!0},t)),Object.setPrototypeOf(c,u.prototype),c}function f(t,e){var o=null==n;if(o&&(n=function(n){var t=[],r=new Set;return function n(e){r.has(e)||(r.add(e),e[i].forEach(n),t.push({stream:e,changed:[]}))}(n),t.reverse()}(t)),t[r]=e,Array.from(t[i]).forEach(function(r){if(r.end===t)return s(r);var e=n.find(function(n){return n.stream===r});if(!e)return n.push({stream:r,changed:[t]});e.changed.push(t)}),o){for(var u=n.shift();u;u=n.shift())0!==u.changed.length&&a(u.stream,u.changed);n=void 0}}function a(n,t){var r=n[e].concat([n],[t]),i=n[o].apply(n,r);null!=i&&f(n,i)}function s(n){n[e].forEach(function(t){return t[i].delete(n)}),n[e]=[],n.end[e]=[],n.end[r]=!0,Array.from(n[i]).forEach(s)}function h(n,t){return n===t}u.combine=function(n,t,r){void 0===r&&(r={});var c=u(r.initial);return c[o]=n,c[e]=t.slice(),t.forEach(function(n){return n[i].add(c)}),r.skip||a(c,t),c},u.prototype={subscribe:function(n){var t=this.map(n,{skip:!0});return function(){return t.end(!0)}},map:function(n,t){return u.combine(function(t){return n(t())},[this],t)},clone:function(){return this.map(function(n){return n})},merge:function(){for(var n=[],t=arguments.length;t--;)n[t]=arguments[t];return u.merge.apply(u,[this].concat(n))},scan:function(n,t){return this.map(function(r){return t=n(t,r)},{skip:!0,initial:t})},dedupe:function(n,t){var r;return n&&"object"==typeof n&&(t=n,n=void 0),n=n||h,(t=t||{}).skip||(r=this()),u.combine(function(t,e){var i=t();n(r,i)||e(i),r=i},[this],{skip:!0,initial:r})},when:function(n){var t,r,e=function(){return new Promise(function(n){t=n})},i=e();return n(this())&&(r=!0,t()),this.scan(function(i,o){return n(o)?r||(r=!0,t()):r&&(r=!1,i=e()),i},i)},changed:function(){var n=this;return new Promise(function(t){var r=n.subscribe(function(n){t(n),r()})})},throttle:function(n){var t,r,e=this,i=function(){c(e()),r=!1},o=function(){return setTimeout(function(){r?(i(),t=o()):t=null},n)},c=u.combine(function(){t?r=!0:(i(),t=o())},[this],{skip:!0});return c},debounce:function(n){var t,r=this,e=function(){i(r()),t=null},i=u.combine(function(){t&&clearTimeout(t),t=setTimeout(e,n)},[this],{skip:!0});return i}},u.merge=function(){for(var n=[],t=arguments.length;t--;)n[t]=arguments[t];return u.combine(function(){for(var n=[],t=arguments.length;t--;)n[t]=arguments[t];var r=n.pop(),e=n.pop();r.forEach(function(n){return e(n())})},n,{skip:!0})},u.fromPromise=function(n){var t=u();return n.then(function(n){t(n),t.end(!0)},function(r){if(!(r instanceof Error)){var e=new Error("Rejected promise");e.promise=n,e.reason=r,r=e}t(r),t.end(!0)}),t},Object.setPrototypeOf(u.prototype,Function.prototype),module.exports=u;
+'use strict';
+
+const sym =
+  typeof Symbol === 'function'
+    ? Symbol
+    :  x => '$teme$_' + x;
+const kValue = sym('value');
+const kParents = sym('parents');
+const kChildren = sym('children');
+const kFunction = sym('function');
+function Stream (v) {
+  const s = createStream(v);
+  s.end = createStream(false);
+  s.end[kChildren].add(s);
+  return s
+}
+function createStream (value) {
+  function stream () {
+    if (arguments.length !== 0) {
+      setStreamValue(stream, arguments[0]);
+    }
+    return stream[kValue]
+  }
+  Object.defineProperties(stream, {
+    [kValue]: { value, configurable: true, writable: true },
+    [kChildren]: { value: new Set(), configurable: true, writable: true },
+    [kParents]: { value: [], configurable: true, writable: true },
+    [kFunction]: { value: undefined, configurable: true, writable: true }
+  });
+  Object.setPrototypeOf(stream, Stream.prototype);
+  return stream
+}
+let updates;
+function setStreamValue (stream, value) {
+  const topUpdate = updates == null;
+  if (topUpdate) updates = getDescendants(stream);
+  stream[kValue] = value;
+  Array.from(stream[kChildren]).forEach(child => {
+    if (child.end === stream) return endStream(child)
+    const update = updates.find(u => u.stream === child);
+    if (!update) return updates.push({ stream: child, changed: [stream] })
+    update.changed.push(stream);
+  });
+  if (topUpdate) {
+    for (let update = updates.shift(); update; update = updates.shift()) {
+      if (update.changed.length !== 0) {
+        recalculateStream(update.stream, update.changed);
+      }
+    }
+    updates = undefined;
+  }
+}
+function getDescendants (root) {
+  const result = [];
+  const seen = new Set();
+  function visit (stream) {
+    if (seen.has(stream)) return
+    seen.add(stream);
+    stream[kChildren].forEach(visit);
+    result.push({ stream, changed: [] });
+  }
+  visit(root);
+  return result.reverse()
+}
+function recalculateStream (stream, changed) {
+  const args = [...stream[kParents], stream, changed];
+  const ret = stream[kFunction](...args);
+  if (ret != null) setStreamValue(stream, ret);
+}
+function endStream (stream) {
+  stream[kParents].forEach(parent => parent[kChildren].delete(stream));
+  stream[kParents] = [];
+  stream.end[kParents] = [];
+  stream.end[kValue] = true;
+  Array.from(stream[kChildren]).forEach(endStream);
+}
+Stream.combine = function combine (fn, streams, opts = {}) {
+  const derived = Stream(opts.initial);
+  derived[kFunction] = fn;
+  derived[kParents] = streams.slice();
+  streams.forEach(parent => parent[kChildren].add(derived));
+  if (!opts.skip) recalculateStream(derived, streams);
+  return derived
+};
+Stream.prototype = {
+  subscribe (fn) {
+    const derived = this.map(fn, { skip: true });
+    return () => derived.end(true)
+  },
+  map (fn, opts) {
+    return Stream.combine(s => fn(s()), [this], opts)
+  },
+  clone () {
+    return this.map(x => x)
+  },
+  merge (...streams) {
+    return Stream.merge(...[this, ...streams])
+  },
+  scan (fn, accum) {
+    return this.map(
+      value => {
+        accum = fn(accum, value);
+        return accum
+      },
+      { skip: true, initial: accum }
+    )
+  },
+  dedupe (cmp, opts) {
+    if (cmp && typeof cmp === 'object') {
+      opts = cmp;
+      cmp = undefined;
+    }
+    cmp = cmp || identical;
+    opts = opts || {};
+    let prev;
+    if (!opts.skip) prev = this();
+    return Stream.combine(
+      (source, target) => {
+        const val = source();
+        if (!cmp(prev, val)) target(val);
+        prev = val;
+      },
+      [this],
+      { skip: true, initial: prev }
+    )
+  },
+  when (fn) {
+    let resolver;
+    let isResolved;
+    const freshPromise = () =>
+      new Promise(resolve => {
+        resolver = resolve;
+      });
+    const initialPromise = freshPromise();
+    if (fn(this())) {
+      isResolved = true;
+      resolver();
+    }
+    return this.scan((prom, value) => {
+      if (fn(value)) {
+        if (!isResolved) {
+          isResolved = true;
+          resolver();
+        }
+      } else {
+        if (isResolved) {
+          isResolved = false;
+          prom = freshPromise();
+        }
+      }
+      return prom
+    }, initialPromise)
+  },
+  changed () {
+    return new Promise(resolve => {
+      const unsub = this.subscribe(x => {
+        resolve(x);
+        unsub();
+      });
+    })
+  },
+  throttle (period) {
+    let timeout;
+    let callDue;
+    const update = () => {
+      derived(this());
+      callDue = false;
+    };
+    const startTimer = () =>
+      setTimeout(() => {
+        if (callDue) {
+          update();
+          timeout = startTimer();
+        } else {
+          timeout = null;
+        }
+      }, period);
+    const derived = Stream.combine(
+      () => {
+        if (timeout) {
+          callDue = true;
+        } else {
+          update();
+          timeout = startTimer();
+        }
+      },
+      [this],
+      { skip: true }
+    );
+    return derived
+  },
+  debounce (period) {
+    let timeout;
+    const update = () => {
+      derived(this());
+      timeout = null;
+    };
+    const startTimer = () => {
+      if (timeout) clearTimeout(timeout);
+      timeout = setTimeout(update, period);
+    };
+    const derived = Stream.combine(startTimer, [this], { skip: true });
+    return derived
+  }
+};
+Stream.merge = function merge (...streams) {
+  return Stream.combine(
+    (...args) => {
+      const changed = args.pop();
+      const self = args.pop();
+      changed.forEach(s => self(s()));
+    },
+    streams,
+    { skip: true }
+  )
+};
+Stream.fromPromise = function fromPromise (p) {
+  const s = Stream();
+  p.then(
+    result => {
+      s(result);
+      s.end(true);
+    },
+    reason => {
+      if (!(reason instanceof Error)) {
+        const err = new Error('Rejected promise');
+        err.promise = p;
+        err.reason = reason;
+        reason = err;
+      }
+      s(reason);
+      s.end(true);
+    }
+  );
+  return s
+};
+Object.setPrototypeOf(Stream.prototype, Function.prototype);
+function identical (a, b) {
+  return a === b
+}
+
+module.exports = Stream;
 //# sourceMappingURL=index.js.map
