@@ -284,11 +284,10 @@ test('when, starting resolved', async t => {
 })
 
 test('when, starting unresolved', async t => {
-  let p
   const s1 = teme(3)
   const s2 = s1.when(v => v % 2 === 0)
 
-  p = s2()
+  const p = s2()
   t.true(p instanceof Promise)
   t.false(await isResolved(p))
 
