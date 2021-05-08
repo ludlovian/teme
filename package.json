@@ -9,6 +9,8 @@
     ".": "./src/index.mjs",
     "./batch": "./src/batch.mjs",
     "./group": "./src/group.mjs",
+    "./filter": "./src/filter.mjs",
+    "./map": "./src/map.mjs",
     "./pipeline": "./src/pipeline.mjs",
     "./sort": "./src/sort.mjs"
   },

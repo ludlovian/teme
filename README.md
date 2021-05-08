@@ -22,6 +22,16 @@ for deep equality (using `pixutil`)
 
 The transformed stream yields out `[key, [item,...]]` items.
 
+## filter
+`filter(fn)`
+
+Creates a transform that filters items.
+
+## map
+`map(fn)`
+
+Creates a transform that applies a function like `Array.map`
+
 ## pipeline
 `pipeline(xform1, xform2, ...)`
 
