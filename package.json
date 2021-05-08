@@ -1,0 +1,30 @@
+{
+  "name": "teme",
+  "version": "0.0.1",
+  "description": "stream utilities",
+  "main": "dist/index.mjs",
+  "module": "dist/index.mjs",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.mjs",
+    "./batch": "./src/batch.mjs",
+    "./group": "./src/group.mjs",
+    "./pipeline": "./src/pipeline.mjs",
+    "./sort": "./src/sort.mjs"
+  },
+  "scripts": {
+    "clean": "rm -rf / coverage/  node_modules/.cache/",
+    "lint": "standard {src,test}/*.mjs|snazzy",
+    "format": "prettier-standard {src,test}/*.mjs",
+    "test": "c8 uvu",
+    "coverage": "npm run test && c8 report --reporter=html && sirv coverage/ -p 8000 -H"
+  },
+  "author": "",
+  "license": "Unlicense",
+  "devDependencies": {
+    "uvu": "^0.5.1"
+  },
+  "dependencies": {
+    "pixutil": "github:ludlovian/pixutil"
+  }
+}
