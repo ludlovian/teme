@@ -8,6 +8,7 @@
   "exports": {
     ".": "./src/index.mjs",
     "./batch": "./src/batch.mjs",
+    "./each": "./src/each.mjs",
     "./group": "./src/group.mjs",
     "./filter": "./src/filter.mjs",
     "./map": "./src/map.mjs",
