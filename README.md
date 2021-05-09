@@ -12,6 +12,11 @@ Available as separate exports or named exports from the default
 
 A transform stream that batches up items in arrays of the given size (or smaller).
 
+## each
+`each(fn)`
+
+A transfor that calls a function for each item in a stream, but without changing it.
+
 ## group
 `group(fn)`
 
