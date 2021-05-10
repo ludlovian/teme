@@ -13,6 +13,7 @@
     "./filter": "./src/filter.mjs",
     "./map": "./src/map.mjs",
     "./pipeline": "./src/pipeline.mjs",
+    "./scan": "./src/scan.mjs",
     "./sort": "./src/sort.mjs"
   },
   "scripts": {

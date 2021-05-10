@@ -42,6 +42,12 @@ Creates a transform that applies a function like `Array.map`
 
 Chains a line of transforms together
 
+## scan
+`scan(fn, initial)`
+
+Creates a transform that applies updates using `fn(current, update)`
+and yields the new current value
+
 ## sort
 `sort(sortfn)`
 
