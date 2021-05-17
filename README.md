@@ -1,56 +1,108 @@
-# teme
-Library of handy generator base stream utils
+# Teme
 
-Terminology
-- A *stream* is an iterable.
-- A *transform* is a function that takes a *stream* and returns another.
+A *teme* is a stream of data. Like the River Teme.
 
-Available as separate exports or named exports from the default
+>In valleys of springs of rivers,\
+>By Onny and Teme and Clun,\
+>The country for easy livers,\
+>The quietest under the sun
+>
+>*A.E. Housman - A Shropshire Lad*
 
-## batch
-`batch(size)`
+## Teme objects
 
-A transform stream that batches up items in arrays of the given size (or smaller).
+A Teme object can be either *synchronous* or *asynchronous*
+and is implemented as an object following the iterable and iterator protocols -
+or the asyncIterable and asyncIterator protocols.
 
-## each
-`each(fn)`
 
-A transfor that calls a function for each item in a stream, but without changing it.
+## API
 
-## group
-`group(fn)`
+### teme
 
-A transform that groups consecutive items together with the same key.
+You create a teme by wrapping an existing iterable (or async version) in `teme`
 
-The function `fn` is used to extract the key from the item. Keys will then be compared
-for deep equality (using `pixutil`)
+```
+import teme from 'teme'
 
-The transformed stream yields out `[key, [item,...]]` items.
+const t = teme(iterable)
+```
 
-## filter
-`filter(fn)`
+They can then be converted, filtered & processed by the various methods. Once a stream
+has been so converted, you should no longer use it. If you want a separate copy, then
+use `tee` to get one.
 
-Creates a transform that filters items.
+### teme.isTeme
 
-## map
-`map(fn)`
+Function used to test if something is a Teme object
 
-Creates a transform that applies a function like `Array.map`
+### teme.join
+`newStream = join(stream0, stream1, ...)`
 
-## pipeline
-`pipeline(xform1, xform2, ...)`
+Creates a stream which is the union of the supplied streams.
 
-Chains a line of transforms together
+The joined stream provides values of the form `[value, index]` where `index` tells you which of the source streams provided this value.
 
-## scan
-`scan(fn, initial)`
+If any of the sources error then the joined stream will also reject with that error, which will have an `index` property on it.
 
-Creates a transform that applies updates using `fn(current, update)`
-and yields the new current value
 
-## sort
-`sort(sortfn)`
+## Teme Methods & attributes
 
-creates a transform that sorts a stream using the standard `array.sort` function.
+### .isSync & .isAsync => Boolean
 
-Obviously has to slurp up the whole stream in order to sort it.
+Tells you whether the teme is a sync-mode or async-mode stream.
+
+`for ... of` only works with sync mode objects, whilst `for await ... of` works with either.
+
+### .toAsync() => Teme
+
+Converts a stream into an async one, if it wasn't already.
+
+### .map(fn) => Teme
+
+Like the array method, this applies a function to each value in the stream, yielding the result.
+
+### .filter(fn) => Teme
+
+This lets through values only where `fn(value)` is truthy.
+
+### .collect() => Array
+
+This collects the values of a finite stream in an array, and returns it.
+
+If the teme `isAsync` then you get a promise of an array (obviously!).
+
+### .sort(sortFn) => Teme
+
+This sorts a finite array based on the supplied function (as `sort`) and yields the values back out in order.
+
+### .each(fn) => Teme
+
+The supplied function is called for each value, but the values are unchanged
+
+### .scan((accum, value) => accum, initialValue) => Teme
+
+Accumulates stream values as a reducer would.
+
+### .group(keyFn) => Teme
+
+Uses the supplied key function to calculate a key for each value.
+
+The resulting stream yields `[key, group]` on each change of key, where `group` is a stream of consecutive values with the same key.
+
+### .dedupe(fn) => Teme
+
+Skips items if they are duplicates. Duplicates are determined by calling `fn(previous, current)`.
+
+If the function is omitted, then `pixutil/equal` is used to look for deep equality.
+
+### .consume()
+
+Consumes a stream, like piping to `/dev/null`. Used for the side effects in the stream, and to dispose of it.
+
+### .tee(copy => {...}) => Teme
+(Async only)
+
+Copies a stream. The copy is provided to the function given.
+
+Implemented by using `pipe`, so this will block eventually if you do not consume the data in the copy.

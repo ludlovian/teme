@@ -1,28 +1,22 @@
 import { test } from 'uvu'
 import * as assert from 'uvu/assert'
 
-import each from '../src/each.mjs'
+import teme from '../src/index.mjs'
 
-test('each', t => {
-  const src = [1, 2, 3, 4]
-  const result = []
-  const fn = n => result.push(n * 10)
-  const arr = [...each(fn)(src)]
-
-  assert.equal(arr, [1, 2, 3, 4])
-  assert.equal(result, [10, 20, 30, 40])
+test('sync each', () => {
+  const t1 = teme([1, 2, 3])
+  let acc = 0
+  const t2 = t1.each(v => (acc = acc + v))
+  assert.equal(t2.collect(), [1, 2, 3])
+  assert.is(acc, 6)
 })
 
-test('error', t => {
-  const err = new Error('oops')
-  const source = [1, 2, 3, 4, 5]
-  const xform = each(n => {
-    throw err
-  })
-  assert.throws(
-    () => [...xform(source)],
-    e => e === err
-  )
+test('async each', async () => {
+  const t1 = teme([1, 2, 3]).toAsync()
+  let acc = 0
+  const t2 = t1.each(async v => (acc = acc + v))
+  assert.equal(await t2.collect(), [1, 2, 3])
+  assert.is(acc, 6)
 })
 
 test.run()

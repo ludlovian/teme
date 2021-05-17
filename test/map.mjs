@@ -1,30 +1,24 @@
 import { test } from 'uvu'
 import * as assert from 'uvu/assert'
 
-import map from '../src/map.mjs'
+import teme from '../src/index.mjs'
 
-test('map', t => {
-  const src = [1, 2, 3, 4].map(n => ({ number: n, foo: 'bar' }))
-  const fn = ({ number, ...rest }) => ({ ...rest, number: number * 10 })
-  const res = [...map(fn)(src)]
-
-  assert.is(res.length, 4)
-  res.forEach(({ number, foo }, n) => {
-    assert.is(foo, 'bar')
-    assert.is(number, (n + 1) * 10)
-  })
+test('sync map', () => {
+  const t1 = teme([1, 2, 3])
+  const t2 = t1.map(v => 10 * v)
+  const result = [...t2]
+  assert.equal(result, [10, 20, 30], 'sync map applied')
 })
 
-test('error', t => {
-  const err = new Error('oops')
-  const source = [1, 2, 3, 4, 5]
-  const xform = map(n => {
-    throw err
-  })
-  assert.throws(
-    () => [...xform(source)],
-    e => e === err
-  )
+test('async map', async () => {
+  const g = (async function * () {
+    yield * [1, 2, 3]
+  })()
+  const t1 = teme(g)
+  const t2 = t1.map(v => 10 * v)
+  const result = []
+  for await (const v of t2) result.push(v)
+  assert.equal(result, [10, 20, 30], 'async map applied')
 })
 
 test.run()

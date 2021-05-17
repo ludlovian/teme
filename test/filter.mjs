@@ -1,30 +1,25 @@
 import { test } from 'uvu'
 import * as assert from 'uvu/assert'
 
-import filter from '../src/filter.mjs'
+import teme from '../src/index.mjs'
 
-test('map', t => {
-  const src = [1, 2, 3, 4, 5, 6].map(n => ({ number: n, foo: 'bar' }))
-  const fn = ({ number }) => number % 2 === 0
-  const res = [...filter(fn)(src)]
-
-  assert.is(res.length, 3)
-  res.forEach(({ number, foo }, n) => {
-    assert.is(foo, 'bar')
-    assert.is(number, (n + 1) * 2)
-  })
+test('sync filter', () => {
+  const t1 = teme([1, 2, 3, 4])
+  const t2 = t1.filter(v => v % 2 === 0)
+  const result = [...t2]
+  assert.equal(result, [2, 4])
 })
 
-test('error', t => {
-  const err = new Error('oops')
-  const source = [1, 2, 3, 4, 5]
-  const xform = filter(n => {
-    throw err
-  })
-  assert.throws(
-    () => [...xform(source)],
-    e => e === err
+test('async filter', async () => {
+  const t1 = teme(
+    (async function * () {
+      yield * [1, 2, 3, 4]
+    })()
   )
+  const t2 = t1.filter(v => v % 2 === 0)
+  const result = []
+  for await (const v of t2) result.push(v)
+  assert.equal(result, [2, 4])
 })
 
 test.run()
