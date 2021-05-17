@@ -37,10 +37,10 @@ export default class Teme {
     return this
   }
 
-  map (fn) {
+  map (fn, ctx) {
     return Teme.from(gen(this))
     async function * gen (src) {
-      for await (const v of src) yield await fn(v)
+      for await (const v of src) yield await fn(v, ctx)
     }
   }
 

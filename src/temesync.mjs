@@ -30,10 +30,10 @@ export default class TemeSync extends Teme {
     }
   }
 
-  map (fn) {
+  map (fn, ctx) {
     return TemeSync.from(gen(this))
     function * gen (src) {
-      for (const v of src) yield fn(v)
+      for (const v of src) yield fn(v, ctx)
     }
   }
 

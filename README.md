@@ -58,9 +58,11 @@ Tells you whether the teme is a sync-mode or async-mode stream.
 
 Converts a stream into an async one, if it wasn't already.
 
-### .map(fn) => Teme
+### .map(fn, ctx) => Teme
 
 Like the array method, this applies a function to each value in the stream, yielding the result.
+
+The second argument is a context, which is passed through unaltered to each invocation.
 
 ### .filter(fn) => Teme
 

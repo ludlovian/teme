@@ -10,6 +10,14 @@ test('sync map', () => {
   assert.equal(result, [10, 20, 30], 'sync map applied')
 })
 
+test('sync map with context', () => {
+  const ctx = { foo: 'bar' }
+  const t1 = teme([1, 2, 3])
+  const t2 = t1.map((v, ctx) => ctx.foo + v, ctx)
+  const result = t2.collect()
+  assert.equal(result, ['bar1', 'bar2', 'bar3'])
+})
+
 test('async map', async () => {
   const g = (async function * () {
     yield * [1, 2, 3]
@@ -19,6 +27,14 @@ test('async map', async () => {
   const result = []
   for await (const v of t2) result.push(v)
   assert.equal(result, [10, 20, 30], 'async map applied')
+})
+
+test('async map with context', async () => {
+  const ctx = { foo: 'bar' }
+  const t1 = teme([1, 2, 3]).toAsync()
+  const t2 = t1.map((v, ctx) => ctx.foo + v, ctx)
+  const result = await t2.collect()
+  assert.equal(result, ['bar1', 'bar2', 'bar3'])
 })
 
 test.run()
