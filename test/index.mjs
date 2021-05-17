@@ -11,6 +11,8 @@ test('sync construction', () => {
   assert.not.ok(t[Symbol.asyncIterator], 'is not an asyncIterable')
   assert.type(t.next, 'function', 'is an iterator')
 
+  assert.is(teme(t), t, 'wrapping returns the original')
+
   assert.equal([...t], [1, 2, 3], 'yields the source')
 })
 
@@ -22,11 +24,13 @@ test('async construction', async () => {
   }
 
   const t = teme(gen())
-  assert.is(t.isAsync, true, 'reports as iasync')
+  assert.is(t.isAsync, true, 'reports as async')
   assert.is(t.isSync, false, 'does not report as sync')
   assert.is(t[Symbol.asyncIterator](), t, 'is an asyncIterable')
   assert.not.ok(t[Symbol.iterator], 'is not an iterable')
   assert.type(t.next, 'function', 'is an iterator')
+
+  assert.is(teme(t), t, 'wrapping returns the original')
 
   const arr = []
   for await (const v of t) arr.push(v)
