@@ -90,6 +90,12 @@ Uses the supplied key function to calculate a key for each value.
 
 The resulting stream yields `[key, group]` on each change of key, where `group` is a stream of consecutive values with the same key.
 
+### .batch(size) => Teme
+
+Batches the stream into separate streams of the given size or smaller.
+
+The result stream yields streams. 
+
 ### .dedupe(fn) => Teme
 
 Skips items if they are duplicates. Duplicates are determined by calling `fn(previous, current)`.

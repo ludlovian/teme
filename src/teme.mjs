@@ -107,6 +107,17 @@ export default class Teme {
     }
   }
 
+  batch (size) {
+    let n = 0
+    const addCtx = value => ({ value, seq: (n++ / size) | 0 })
+    const remCtx = ({ value }) => value
+    const seqKey = ({ seq }) => seq
+    const pullGroup = ([, group]) => group.map(remCtx)
+    return this.map(addCtx)
+      .group(seqKey)
+      .map(pullGroup)
+  }
+
   dedupe (fn = equal) {
     let prev = EMPTY
     return this.filter(v => {
