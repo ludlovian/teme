@@ -67,9 +67,9 @@ export default class Teme {
     }
   }
 
-  each (fn) {
+  each (fn, ctx) {
     return this.map(async v => {
-      await fn(v)
+      await fn(v, ctx)
       return v
     })
   }

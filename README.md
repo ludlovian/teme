@@ -78,9 +78,11 @@ If the teme `isAsync` then you get a promise of an array (obviously!).
 
 This sorts a finite array based on the supplied function (as `sort`) and yields the values back out in order.
 
-### .each(fn) => Teme
+### .each(fn, ctx) => Teme
 
 The supplied function is called for each value, but the values are unchanged
+
+The second argument is a context, which is passed through unaltered to each invocation.
 
 ### .scan((accum, value) => accum, initialValue) => Teme
 

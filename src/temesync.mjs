@@ -54,9 +54,9 @@ export default class TemeSync extends Teme {
     return TemeSync.from(this.collect().sort(fn))
   }
 
-  each (fn) {
+  each (fn, ctx) {
     return this.map(v => {
-      fn(v)
+      fn(v, ctx)
       return v
     })
   }
