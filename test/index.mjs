@@ -7,9 +7,10 @@ test('sync construction', () => {
   const t = teme([1, 2, 3])
   assert.is(t.isSync, true, 'reports as sync')
   assert.is(t.isAsync, false, 'does not report as async')
-  assert.is(t[Symbol.iterator](), t, 'is an iterable')
-  assert.not.ok(t[Symbol.asyncIterator], 'is not an asyncIterable')
-  assert.type(t.next, 'function', 'is an iterator')
+  assert.type(t[Symbol.iterator], 'function', 'is an iterable')
+  assert.type(t[Symbol.asyncIterator], 'undefined', 'is not an asyncIterable')
+  const it = t[Symbol.iterator]()
+  assert.type(it.next, 'function', 'has an iterator')
 
   assert.is(teme(t), t, 'wrapping returns the original')
 
@@ -26,9 +27,10 @@ test('async construction', async () => {
   const t = teme(gen())
   assert.is(t.isAsync, true, 'reports as async')
   assert.is(t.isSync, false, 'does not report as sync')
-  assert.is(t[Symbol.asyncIterator](), t, 'is an asyncIterable')
-  assert.not.ok(t[Symbol.iterator], 'is not an iterable')
-  assert.type(t.next, 'function', 'is an iterator')
+  assert.type(t[Symbol.asyncIterator], 'function', 'is an asyncIterable')
+  assert.type(t[Symbol.iterator], 'undefined', 'is not an iterable')
+  const it = t[Symbol.asyncIterator]()
+  assert.type(it.next, 'function', 'has an iterator')
 
   assert.is(teme(t), t, 'wrapping returns the original')
 

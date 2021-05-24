@@ -39,25 +39,26 @@ test('sync group incomplete', () => {
   const t1 = teme(DATA)
   const t2 = t1.group(x => x.foo)
 
-  let item = t2.next().value
+  const it2 = t2[Symbol.iterator]()
+  let item = it2.next().value
   let key = item[0]
   let group = item[1]
   assert.is(key, 1)
   assert.ok(teme.isTeme(group))
 
-  item = t2.next().value
+  item = it2.next().value
   key = item[0]
   group = item[1]
   assert.is(key, 2)
   assert.ok(teme.isTeme(group))
 
-  item = t2.next().value
+  item = it2.next().value
   key = item[0]
   group = item[1]
   assert.is(key, 3)
   assert.ok(teme.isTeme(group))
 
-  const { done } = t2.next()
+  const { done } = it2.next()
   assert.ok(done)
 })
 
@@ -88,27 +89,28 @@ test('async group complete', async () => {
 test('async group incomplete', async () => {
   const t1 = teme(DATA).toAsync()
   const t2 = t1.group(x => x.foo)
+  const it2 = t2[Symbol.asyncIterator]()
 
-  let item = await t2.next()
+  let item = await it2.next()
   let key = item.value[0]
   let group = item.value[1]
   assert.is(key, 1)
   assert.ok(teme.isTeme(group))
   assert.ok(group.isAsync)
 
-  item = await t2.next()
+  item = await it2.next()
   key = item.value[0]
   group = item.value[1]
   assert.is(key, 2)
   assert.ok(teme.isTeme(group))
 
-  item = await t2.next()
+  item = await it2.next()
   key = item.value[0]
   group = item.value[1]
   assert.is(key, 3)
   assert.ok(teme.isTeme(group))
 
-  const { done } = await t2.next()
+  const { done } = await it2.next()
   assert.ok(done)
 })
 

@@ -6,14 +6,14 @@ import teme from '../src/index.mjs'
 test('sync consume', () => {
   const t = teme([1, 2, 3])
   t.consume()
-  const { done } = t.next()
+  const { done } = t[Symbol.iterator]().next()
   assert.is(done, true)
 })
 
 test('async consume', async () => {
   const t = teme([1, 2, 3]).toAsync()
   await t.consume()
-  const { done } = await t.next()
+  const { done } = await t[Symbol.asyncIterator]().next()
   assert.is(done, true)
 })
 

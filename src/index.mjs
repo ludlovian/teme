@@ -1,33 +1,21 @@
-import Pipe from 'pipe'
-
-import Teme from './teme.mjs'
-import TemeSync from './temesync.mjs'
+import { Teme } from './teme.mjs'
+import { TemeSync } from './temesync.mjs'
+import Pipe from './pipe.mjs'
+import join from './join.mjs'
 import { AITER, SITER } from './util.mjs'
 
 export default function teme (s) {
-  if (typeof s[SITER] === 'function') return TemeSync.from(s)
-  if (typeof s[AITER] === 'function') return Teme.from(s)
+  if (s instanceof Teme) return s
+  if (typeof s[SITER] === 'function') return TemeSync.fromIterable(s)
+  if (typeof s[AITER] === 'function') return Teme.fromIterable(s)
   throw new Error('Not iterable')
 }
 
-teme.join = function join (...sources) {
-  const [reader, writer] = new Pipe()
-  sources.forEach(feed)
-  let open = sources.length
-  if (!open) writer.close()
-  return Teme.from(reader)
+teme.join = join
 
-  async function feed (stream, index) {
-    try {
-      for await (const value of stream) {
-        if (writer.closed) return
-        await writer.write([value, index])
-      }
-      if (!--open) await writer.close()
-    } catch (error) {
-      writer.throw(Object.assign(error, { index }))
-    }
-  }
+teme.pipe = function pipe () {
+  const { next, ...pipe } = new Pipe()
+  return Object.assign(Teme.fromIterator({ next }), pipe)
 }
 
 teme.isTeme = function isTeme (t) {

@@ -12,15 +12,17 @@ A *teme* is a stream of data. Like the River Teme.
 ## Teme objects
 
 A Teme object can be either *synchronous* or *asynchronous*
-and is implemented as an object following the iterable and iterator protocols -
-or the asyncIterable and asyncIterator protocols.
+and is implemented as an object following the iterable or asyncIterable
+protocols.
 
+This means that data evaluation is lazy and pull-oriented, not push-oriented.
+If you do not ask for data, then none is produced.
 
 ## API
 
 ### teme
 
-You create a teme by wrapping an existing iterable (or async version) in `teme`
+You create a teme by wrapping an existing iterable or asyncIterable in `teme`
 
 ```
 import teme from 'teme'
@@ -28,13 +30,28 @@ import teme from 'teme'
 const t = teme(iterable)
 ```
 
-They can then be converted, filtered & processed by the various methods. Once a stream
-has been so converted, you should no longer use it. If you want a separate copy, then
-use `tee` to get one.
+They can then be converted, filtered & processed by the various methods.
+Generally, these will return a new stream.
+
+Streams can have multiple independent readers - iterators - who can read
+the data from the point they were created. But if you create an iterator
+and never consume it, it will consume memory.
 
 ### teme.isTeme
 
 Function used to test if something is a Teme object
+
+### teme.pipe
+
+Creates an async teme which you can write things to.
+
+#### pipe.write(value)
+
+Writes data to the time
+
+#### pipe.end()
+
+Closes the pipe, ending the stream
 
 ### teme.join
 `newStream = join(stream0, stream1, ...)`
@@ -52,11 +69,24 @@ If any of the sources error then the joined stream will also reject with that er
 
 Tells you whether the teme is a sync-mode or async-mode stream.
 
-`for ... of` only works with sync mode objects, whilst `for await ... of` works with either.
+`for ... of` only works with sync mode objects,
+whilst `for await ... of` works with either but is obviosuly slower.
+
+### .current
+
+Returns the last `{ value, done }` read into this stream.
 
 ### .toAsync() => Teme
 
 Converts a stream into an async one, if it wasn't already.
+
+### .copy() => Teme
+
+Creates a copy of this teme.
+
+Whilst you can run multiple iterators over a teme, this command
+will ensure that an iterator is created to grab the data from this
+point on.
 
 ### .map(fn, ctx) => Teme
 
@@ -71,8 +101,10 @@ This lets through values only where `fn(value)` is truthy.
 ### .collect() => Array
 
 This collects the values of a finite stream in an array, and returns it.
-
 If the teme `isAsync` then you get a promise of an array (obviously!).
+
+Rather pointless for sync iterables, as you can just do `[...iterable]`. But
+quite handy for async ones to be able to do `await teme(asyncIterable).collect()`
 
 ### .sort(sortFn) => Teme
 
@@ -92,7 +124,7 @@ Accumulates stream values as a reducer would.
 
 Uses the supplied key function to calculate a key for each value.
 
-The resulting stream yields `[key, group]` on each change of key, where `group` is a stream of consecutive values with the same key.
+The resulting stream yields `[key, group]` on each change of key, where `group` is a Teme of consecutive values with the same key.
 
 ### .batch(size) => Teme
 
@@ -110,9 +142,6 @@ If the function is omitted, then `pixutil/equal` is used to look for deep equali
 
 Consumes a stream, like piping to `/dev/null`. Used for the side effects in the stream, and to dispose of it.
 
-### .tee(copy => {...}) => Teme
-(Async only)
+### .on(fn, ctx)
 
-Copies a stream. The copy is provided to the function given.
-
-Implemented by using `pipe`, so this will block eventually if you do not consume the data in the copy.
+Consumes a stream, passing each value to the function, with the supplied context.

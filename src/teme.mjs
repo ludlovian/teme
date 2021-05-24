@@ -1,28 +1,45 @@
-import Pipe from 'pipe'
 import equal from 'pixutil/equal'
 
-import { AITER, EMPTY, returnThis } from './util.mjs'
+import { AITER, SITER, EMPTY } from './util.mjs'
 
-export default class Teme {
-  static from (src) {
-    if (src instanceof Teme) return src
+export class TemeIterator {
+  constructor (teme) {
+    this._teme = teme
+    this._item = teme._item
+  }
+
+  async next () {
+    if (!this._item.next) await this._teme._read()
+    this._item = this._item.next
+    const { value, done } = this._item
+    return { value, done }
+  }
+}
+
+export class Teme {
+  static fromIterable (iterable) {
+    return Teme.fromIterator(iterable[AITER]())
+  }
+
+  static fromIterator (iter) {
     const t = new Teme()
-    const it = src[AITER]()
-    async function next () {
-      const item = await it.next()
-      Object.assign(this, item)
-      return item
-    }
-    Object.defineProperties(t, {
-      [AITER]: { value: returnThis, configurable: true },
-      next: { value: next, configurable: true }
-    })
+    t._next = iter.next.bind(iter)
+    t[AITER] = () => new TemeIterator(t)
     return t
   }
 
-  constructor (src) {
-    this.done = undefined
-    this.value = undefined
+  constructor () {
+    this._item = {}
+  }
+
+  async _read () {
+    const prev = this._item
+    prev.next = this._item = await this._next()
+  }
+
+  get current () {
+    const { value, done } = this._item
+    return { value, done }
   }
 
   get isSync () {
@@ -37,20 +54,32 @@ export default class Teme {
     return this
   }
 
+  copy () {
+    return Teme.fromIterator(this[AITER]())
+  }
+
   map (fn, ctx) {
-    return Teme.from(gen(this))
-    async function * gen (src) {
-      for await (const v of src) yield await fn(v, ctx)
-    }
+    const it = this[AITER]()
+    return Teme.fromIterator({
+      async next () {
+        const { value, done } = await it.next()
+        if (done) return { done }
+        return { value: await fn(value, ctx) }
+      }
+    })
   }
 
   filter (fn) {
-    return Teme.from(gen(this))
-    async function * gen (src) {
-      for await (const v of src) {
-        if (fn(v)) yield v
+    const it = this[AITER]()
+    return Teme.fromIterator({
+      async next () {
+        while (true) {
+          const { value, done } = await it.next()
+          if (done) return { done }
+          if (await fn(value)) return { value }
+        }
       }
-    }
+    })
   }
 
   async collect () {
@@ -60,11 +89,17 @@ export default class Teme {
   }
 
   sort (fn) {
-    return Teme.from(gen(this))
-    async function * gen (src) {
-      const arr = await src.collect()
-      yield * arr.sort(fn)
-    }
+    let it
+    const c = this.copy()
+    return Teme.fromIterator({
+      async next () {
+        if (!it) {
+          const arr = await c.collect()
+          it = arr.sort(fn)[SITER]()
+        }
+        return it.next()
+      }
+    })
   }
 
   each (fn, ctx) {
@@ -82,34 +117,38 @@ export default class Teme {
   }
 
   group (fn) {
-    return Teme.from(gen(this))
-    async function * gen (src) {
-      let tgt = EMPTY
-      let key = EMPTY
-      let item = {}
-      while (!item.done) {
-        while (equal(key, tgt)) {
-          item = await src.next()
-          if (item.done) return
-          key = fn(item.value)
-        }
-        tgt = key
-        yield [key, Teme.from(grouper())]
+    const it = this[AITER]()
+    let tgt = EMPTY
+    let key = EMPTY
+    let item = {}
+
+    return Teme.fromIterator({ next })
+
+    async function next () {
+      if (item.done) return item
+      while (equal(key, tgt)) {
+        item = await it.next()
+        if (item.done) return item
+        key = fn(item.value)
       }
-      async function * grouper () {
-        while (equal(key, tgt)) {
-          yield item.value
-          item = await src.next()
-          if (item.done) return
-          key = fn(item.value)
-        }
-      }
+      tgt = key
+      const grouper = Teme.fromIterator({ next: gnext })
+      const value = [key, grouper]
+      return { value }
+    }
+
+    async function gnext () {
+      if (!equal(key, tgt)) return { done: true }
+      const _item = item
+      item = await it.next()
+      if (!item.done) key = fn(item.value)
+      return _item
     }
   }
 
   batch (size) {
     let n = 0
-    const addCtx = value => ({ value, seq: (n++ / size) | 0 })
+    const addCtx = value => ({ value, seq: Math.floor(n++ / size) })
     const remCtx = ({ value }) => value
     const seqKey = ({ seq }) => seq
     const pullGroup = ([, group]) => group.map(remCtx)
@@ -127,23 +166,13 @@ export default class Teme {
     })
   }
 
-  async consume () {
-    while (true) {
-      const { done } = await this.next()
-      if (done) return
-    }
+  consume () {
+    return this.on(() => undefined)
   }
 
-  tee (fn, size) {
-    const [reader, writer] = new Pipe(size)
-    fn(Teme.from(reader))
-    async function * gen (src) {
-      for await (const v of src) {
-        await writer.write(v)
-        yield v
-      }
-      await writer.close()
+  async on (fn, ctx) {
+    for await (const v of this) {
+      await fn(v, ctx)
     }
-    return Teme.from(gen(this))
   }
 }

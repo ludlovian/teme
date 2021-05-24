@@ -18,7 +18,6 @@
     "uvu": "^0.5.1"
   },
   "dependencies": {
-    "pipe": "github:ludlovian/pipe#semver:^2.0.0",
     "pixutil": "github:ludlovian/pixutil"
   }
 }

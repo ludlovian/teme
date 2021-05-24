@@ -6,8 +6,11 @@ import teme from '../src/index.mjs'
 test('sync map', () => {
   const t1 = teme([1, 2, 3])
   const t2 = t1.map(v => 10 * v)
-  const result = [...t2]
-  assert.equal(result, [10, 20, 30], 'sync map applied')
+  const t3 = t1.copy()
+  const res2 = [...t2]
+  const res3 = [...t3]
+  assert.equal(res3, [1, 2, 3], 'original')
+  assert.equal(res2, [10, 20, 30], 'sync map applied')
 })
 
 test('sync map with context', () => {
@@ -23,7 +26,7 @@ test('async map', async () => {
     yield * [1, 2, 3]
   })()
   const t1 = teme(g)
-  const t2 = t1.map(v => 10 * v)
+  const t2 = t1.map(v => Promise.resolve(10 * v))
   const result = []
   for await (const v of t2) result.push(v)
   assert.equal(result, [10, 20, 30], 'async map applied')

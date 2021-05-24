@@ -16,7 +16,7 @@ test('async filter', async () => {
       yield * [1, 2, 3, 4]
     })()
   )
-  const t2 = t1.filter(v => v % 2 === 0)
+  const t2 = t1.filter(v => Promise.resolve(v % 2 === 0))
   const result = []
   for await (const v of t2) result.push(v)
   assert.equal(result, [2, 4])

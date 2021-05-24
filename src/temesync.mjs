@@ -1,22 +1,31 @@
 import equal from 'pixutil/equal'
-import { SITER, EMPTY, returnThis } from './util.mjs'
-import Teme from './teme.mjs'
+import { SITER, EMPTY } from './util.mjs'
+import { Teme, TemeIterator } from './teme.mjs'
 
-export default class TemeSync extends Teme {
-  static from (src) {
-    if (src instanceof Teme) return src
+export class TemeIteratorSync extends TemeIterator {
+  next () {
+    if (!this._item.next) this._teme._read()
+    this._item = this._item.next
+    const { value, done } = this._item
+    return { value, done }
+  }
+}
+
+export class TemeSync extends Teme {
+  static fromIterable (iterable) {
+    return TemeSync.fromIterator(iterable[SITER]())
+  }
+
+  static fromIterator (iter) {
     const t = new TemeSync()
-    const it = src[SITER]()
-    function next () {
-      const item = it.next()
-      Object.assign(this, item)
-      return item
-    }
-    Object.defineProperties(t, {
-      [SITER]: { value: returnThis, configurable: true },
-      next: { value: next, configurable: true }
-    })
+    t._next = iter.next.bind(iter)
+    t[SITER] = () => new TemeIteratorSync(t)
     return t
+  }
+
+  _read () {
+    const prev = this._item
+    prev.next = this._item = this._next()
   }
 
   get isSync () {
@@ -24,26 +33,38 @@ export default class TemeSync extends Teme {
   }
 
   toAsync () {
-    return Teme.from(gen(this))
-    async function * gen (src) {
-      yield * src
-    }
+    const it = this[SITER]()
+    return Teme.fromIterator({
+      next: () => Promise.resolve(it.next())
+    })
+  }
+
+  copy () {
+    return TemeSync.fromIterator(this[SITER]())
   }
 
   map (fn, ctx) {
-    return TemeSync.from(gen(this))
-    function * gen (src) {
-      for (const v of src) yield fn(v, ctx)
-    }
+    const it = this[SITER]()
+    return TemeSync.fromIterator({
+      next () {
+        const { value, done } = it.next()
+        if (done) return { done }
+        return { value: fn(value, ctx) }
+      }
+    })
   }
 
   filter (fn) {
-    return TemeSync.from(gen(this))
-    function * gen (src) {
-      for (const v of src) {
-        if (fn(v)) yield v
+    const it = this[SITER]()
+    return TemeSync.fromIterator({
+      next () {
+        while (true) {
+          const { value, done } = it.next()
+          if (done) return { done }
+          if (fn(value)) return { value }
+        }
       }
-    }
+    })
   }
 
   collect () {
@@ -51,7 +72,17 @@ export default class TemeSync extends Teme {
   }
 
   sort (fn) {
-    return TemeSync.from(this.collect().sort(fn))
+    let it
+    const c = this.copy()
+    return TemeSync.fromIterator({
+      next () {
+        if (!it) {
+          const arr = c.collect()
+          it = arr.sort(fn)[SITER]()
+        }
+        return it.next()
+      }
+    })
   }
 
   each (fn, ctx) {
@@ -69,39 +100,38 @@ export default class TemeSync extends Teme {
   }
 
   group (fn) {
-    return TemeSync.from(gen(this))
-    function * gen (src) {
-      let tgt = EMPTY
-      let key = EMPTY
-      let item = {}
-      while (!item.done) {
-        while (equal(key, tgt)) {
-          item = src.next()
-          if (item.done) return
-          key = fn(item.value)
-        }
-        tgt = key
-        yield [key, TemeSync.from(grouper())]
+    const it = this[SITER]()
+    let tgt = EMPTY
+    let key = EMPTY
+    let item = {}
+
+    return TemeSync.fromIterator({ next })
+
+    function next () {
+      if (item.done) return item
+      while (equal(key, tgt)) {
+        item = it.next()
+        if (item.done) return item
+        key = fn(item.value)
       }
-      function * grouper () {
-        while (equal(key, tgt)) {
-          yield item.value
-          item = src.next()
-          if (item.done) return
-          key = fn(item.value)
-        }
-      }
+      tgt = key
+      const grouper = TemeSync.fromIterator({ next: gnext })
+      const value = [key, grouper]
+      return { value }
+    }
+
+    function gnext () {
+      if (!equal(key, tgt)) return { done: true }
+      const _item = item
+      item = it.next()
+      if (!item.done) key = fn(item.value)
+      return _item
     }
   }
 
-  consume () {
-    while (true) {
-      const { done } = this.next()
-      if (done) return
+  on (fn, ctx) {
+    for (const v of this) {
+      fn(v, ctx)
     }
-  }
-
-  tee (fn) {
-    return this.toAsync().tee(fn)
   }
 }
