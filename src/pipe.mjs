@@ -1,6 +1,6 @@
 export default function Pipe () {
-  let curr = {}
-  let tail = curr
+  let head = {}
+  let tail = head
   return { write, end, next }
 
   function write (value) {
@@ -14,19 +14,18 @@ export default function Pipe () {
   function _write (item) {
     if (tail.done) return
     if (tail.resolve) tail.resolve(item)
-    tail.next = Promise.resolve(item)
+    else tail.next = Promise.resolve(item)
     tail = item
     if (tail.done) tail.next = Promise.resolve(tail)
   }
 
   async function next () {
-    if (!curr.next) {
-      curr.next = new Promise(resolve => {
-        curr.resolve = resolve
+    if (!head.next) {
+      head.next = new Promise(resolve => {
+        head.resolve = resolve
       })
     }
-    curr = await curr.next
-    const { value, done } = curr
-    return { value, done }
+    head = await head.next
+    return { value: head.value, done: head.done }
   }
 }

@@ -35,7 +35,7 @@ Generally, these will return a new stream.
 
 Streams can have multiple independent readers - iterators - who can read
 the data from the point they were created. But if you create an iterator
-and never consume it, it will consume memory.
+and never consume it, it will consume memory whilst it remains.
 
 ### teme.isTeme
 
@@ -47,7 +47,7 @@ Creates an async teme which you can write things to.
 
 #### pipe.write(value)
 
-Writes data to the time
+Writes data into the pipe
 
 #### pipe.end()
 
@@ -58,9 +58,11 @@ Closes the pipe, ending the stream
 
 Creates a stream which is the union of the supplied streams.
 
-The joined stream provides values of the form `[value, index]` where `index` tells you which of the source streams provided this value.
+The joined stream provides values of the form `[value, index]` where
+`index` tells you which of the source streams provided this value.
 
-If any of the sources error then the joined stream will also reject with that error, which will have an `index` property on it.
+If any of the sources error then the joined stream will also reject
+with that error, which will have an `index` property on it.
 
 
 ## Teme Methods & attributes
@@ -85,14 +87,16 @@ Converts a stream into an async one, if it wasn't already.
 Creates a copy of this teme.
 
 Whilst you can run multiple iterators over a teme, this command
-will ensure that an iterator is created to grab the data from this
+will ensure that an iterator is created now to grab the data from this
 point on.
 
 ### .map(fn, ctx) => Teme
 
-Like the array method, this applies a function to each value in the stream, yielding the result.
+Like the array method, this applies a function to each value in the stream,
+yielding the result.
 
-The second argument is a context, which is passed through unaltered to each invocation.
+The second argument is a context, which is passed through unaltered
+to each invocation.
 
 ### .filter(fn) => Teme
 
@@ -108,13 +112,15 @@ quite handy for async ones to be able to do `await teme(asyncIterable).collect()
 
 ### .sort(sortFn) => Teme
 
-This sorts a finite array based on the supplied function (as `sort`) and yields the values back out in order.
+This sorts a finite array based on the supplied function (as `sort`) and
+yields the values back out in order.
 
 ### .each(fn, ctx) => Teme
 
 The supplied function is called for each value, but the values are unchanged
 
-The second argument is a context, which is passed through unaltered to each invocation.
+The second argument is a context, which is passed through unaltered to
+each invocation.
 
 ### .scan((accum, value) => accum, initialValue) => Teme
 
@@ -124,7 +130,8 @@ Accumulates stream values as a reducer would.
 
 Uses the supplied key function to calculate a key for each value.
 
-The resulting stream yields `[key, group]` on each change of key, where `group` is a Teme of consecutive values with the same key.
+The resulting stream yields `[key, group]` on each change of key, where
+`group` is a Teme of consecutive values with the same key.
 
 ### .batch(size) => Teme
 
@@ -134,14 +141,18 @@ The result stream yields streams.
 
 ### .dedupe(fn) => Teme
 
-Skips items if they are duplicates. Duplicates are determined by calling `fn(previous, current)`.
+Skips items if they are duplicates. Duplicates are determined by calling
+`fn(previous, current)`.
 
-If the function is omitted, then `pixutil/equal` is used to look for deep equality.
+If the function is omitted, then `pixutil/equal` is used to look for
+deep equality.
 
 ### .consume()
 
-Consumes a stream, like piping to `/dev/null`. Used for the side effects in the stream, and to dispose of it.
+Consumes a stream, like piping to `/dev/null`. Used for the side effects in
+the stream, and to dispose of it.
 
 ### .on(fn, ctx)
 
-Consumes a stream, passing each value to the function, with the supplied context.
+Consumes a stream, passing each value to the function, with the supplied
+context.

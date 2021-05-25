@@ -4,108 +4,179 @@ import * as assert from 'uvu/assert'
 import teme from '../src/index.mjs'
 
 test('async iterator', async () => {
-  async function * f () {
-    yield 'foo'
-    yield 'bar'
-    yield 'baz'
-  }
-
-  const t = teme(f())
+  const t = teme(
+    (async function * () {
+      let i = 0
+      while (true) yield ++i
+    })()
+  )
   assert.is(t.isAsync, true, 'is an async stream')
 
-  const it = t[Symbol.asyncIterator]()
-  let item = await it.next()
-  assert.is(item.value, 'foo')
-  assert.is(!!item.done, false)
-  assert.is(t.current.value, 'foo')
-  assert.is(!!t.current.done, false)
-
-  item = await it.next()
-  assert.is(item.value, 'bar')
-  assert.is(!!item.done, false)
-
-  item = await it.next()
-  assert.is(item.value, 'baz')
-  assert.is(!!item.done, false)
-
-  item = await it.next()
-  assert.is(!!item.done, true)
-  assert.is(!!t.current.done, true)
-})
-
-test('multiple async iterators', async () => {
-  let item
-  const t = teme([10, 20, 30, 40]).toAsync()
-
   const it1 = t[Symbol.asyncIterator]()
-  item = await it1.next()
-  assert.is(item.value, 10)
-
   const it2 = t[Symbol.asyncIterator]()
 
-  item = await it1.next()
-  assert.is(item.value, 20)
-  item = await it1.next()
-  assert.is(item.value, 30)
-  assert.is(t.current.value, 30)
+  let [pGet1, pGet2, get1, get2] = []
 
-  item = await it2.next()
-  assert.is(item.value, 20)
-  item = await it2.next()
-  assert.is(item.value, 30)
-  item = await it2.next()
-  assert.is(item.value, 40)
-  assert.is(t.current.value, 40)
+  pGet1 = it1.next()
+  pGet2 = it2.next()
+
+  get1 = await pGet1
+  get2 = await pGet2
+
+  assert.is(get1.value, 1)
+  assert.is(!!get1.done, false)
+  assert.is(get2.value, 1)
+  assert.is(!!get2.done, false)
+  assert.is(t.current.value, 1)
+
+  pGet1 = it1.next()
+  pGet2 = it2.next()
+
+  get1 = await pGet1
+  get2 = await pGet2
+
+  assert.is(get1.value, 2)
+  assert.is(!!get1.done, false)
+  assert.is(get2.value, 2)
+  assert.is(!!get2.done, false)
+  assert.is(t.current.value, 2)
+})
+
+test('async ending iterator', async () => {
+  const t = teme(
+    (async function * () {
+      yield 17
+    })()
+  )
+  assert.is(t.isAsync, true, 'is an async stream')
+
+  const it1 = t[Symbol.asyncIterator]()
+  const it2 = t[Symbol.asyncIterator]()
+
+  let [pGet1, pGet2, get1, get2] = []
+
+  pGet1 = it1.next()
+  pGet2 = it2.next()
+
+  get1 = await pGet1
+  get2 = await pGet2
+
+  assert.is(get1.value, 17)
+  assert.is(!!get1.done, false)
+  assert.is(get2.value, 17)
+  assert.is(!!get2.done, false)
+  assert.is(t.current.value, 17)
+
+  pGet1 = it1.next()
+  pGet2 = it2.next()
+
+  get1 = await pGet1
+  get2 = await pGet2
+
+  assert.is(!!get1.done, true)
+  assert.is(!!get2.done, true)
+  assert.is(t.current.done, true)
+})
+
+test('async error iterator', async () => {
+  let err
+  const t = teme(
+    (async function * () {
+      err = new Error('oops')
+      throw err
+    })()
+  )
+
+  const it = t[Symbol.asyncIterator]()
+  await it
+    .next()
+    .then(assert.unreachable)
+    .catch(e => assert.is(e, err))
+
+  const item = await it.next()
+  assert.is(item.done, true)
 })
 
 test('sync iterator', () => {
-  function * f () {
-    yield 'foo'
-    yield 'bar'
-    yield 'baz'
-  }
-
-  const t = teme(f())
-  assert.is(t.isSync, true, 'is an async stream')
-
-  const it = t[Symbol.iterator]()
-  let item = it.next()
-  assert.is(item.value, 'foo')
-  assert.is(!!item.done, false)
-
-  item = it.next()
-  assert.is(item.value, 'bar')
-  assert.is(!!item.done, false)
-
-  item = it.next()
-  assert.is(item.value, 'baz')
-  assert.is(!!item.done, false)
-
-  item = it.next()
-  assert.is(!!item.done, true)
-})
-
-test('multiple sync iterators', () => {
-  let item
-  const t = teme([10, 20, 30, 40])
+  const t = teme(
+    (function * () {
+      let i = 0
+      while (true) yield ++i
+    })()
+  )
+  assert.is(t.isSync, true, 'is a sync stream')
 
   const it1 = t[Symbol.iterator]()
-  item = it1.next()
-  assert.is(item.value, 10)
-
   const it2 = t[Symbol.iterator]()
 
-  item = it1.next()
-  assert.is(item.value, 20)
-  item = it1.next()
-  assert.is(item.value, 30)
+  let [get1, get2] = []
 
-  item = it2.next()
-  assert.is(item.value, 20)
-  item = it2.next()
-  assert.is(item.value, 30)
-  item = it2.next()
-  assert.is(item.value, 40)
+  get1 = it1.next()
+  get2 = it2.next()
+
+  assert.is(get1.value, 1)
+  assert.is(!!get1.done, false)
+  assert.is(get2.value, 1)
+  assert.is(!!get2.done, false)
+  assert.is(t.current.value, 1)
+
+  get1 = it1.next()
+  get2 = it2.next()
+
+  assert.is(get1.value, 2)
+  assert.is(!!get1.done, false)
+  assert.is(get2.value, 2)
+  assert.is(!!get2.done, false)
+  assert.is(t.current.value, 2)
+})
+
+test('sync ending iterator', () => {
+  const t = teme(
+    (function * () {
+      yield 17
+    })()
+  )
+  assert.is(t.isSync, true, 'is a sync stream')
+
+  const it1 = t[Symbol.iterator]()
+  const it2 = t[Symbol.iterator]()
+
+  let [get1, get2] = []
+
+  get1 = it1.next()
+  get2 = it2.next()
+
+  assert.is(get1.value, 17)
+  assert.is(!!get1.done, false)
+  assert.is(get2.value, 17)
+  assert.is(!!get2.done, false)
+  assert.is(t.current.value, 17)
+
+  get1 = it1.next()
+  get2 = it2.next()
+
+  assert.is(!!get1.done, true)
+  assert.is(!!get2.done, true)
+  assert.is(t.current.done, true)
+})
+
+test('sync error iterator', () => {
+  let err
+  const t = teme(
+    (function * () {
+      err = new Error('oops')
+      throw err
+    })()
+  )
+
+  const it = t[Symbol.iterator]()
+  assert.throws(
+    () => it.next(),
+    e => e === err
+  )
+
+  const item = it.next()
+  assert.is(item.done, true)
 })
 
 test.run()

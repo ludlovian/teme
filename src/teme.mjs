@@ -2,21 +2,7 @@ import equal from 'pixutil/equal'
 
 import { AITER, SITER, EMPTY } from './util.mjs'
 
-export class TemeIterator {
-  constructor (teme) {
-    this._teme = teme
-    this._item = teme._item
-  }
-
-  async next () {
-    if (!this._item.next) await this._teme._read()
-    this._item = this._item.next
-    const { value, done } = this._item
-    return { value, done }
-  }
-}
-
-export class Teme {
+export default class Teme {
   static fromIterable (iterable) {
     return Teme.fromIterator(iterable[AITER]())
   }
@@ -24,21 +10,40 @@ export class Teme {
   static fromIterator (iter) {
     const t = new Teme()
     t._next = iter.next.bind(iter)
-    t[AITER] = () => new TemeIterator(t)
+    t[AITER] = t._iterator.bind(t)
     return t
   }
 
   constructor () {
-    this._item = {}
+    this._current = {}
+  }
+
+  _iterator () {
+    let curr = this._current
+    return {
+      next: async () => {
+        if (!curr.next) curr.next = this._read()
+        curr = await curr.next
+        return { value: curr.value, done: curr.done }
+      }
+    }
   }
 
   async _read () {
-    const prev = this._item
-    prev.next = this._item = await this._next()
+    try {
+      const next = await this._next()
+      if (next.done) next.next = Promise.resolve(next)
+      return (this._current = next)
+    } catch (error) {
+      const next = { done: true }
+      next.next = this._current.next = Promise.resolve(next)
+      this._current = next
+      throw error
+    }
   }
 
   get current () {
-    const { value, done } = this._item
+    const { value, done } = this._current
     return { value, done }
   }
 

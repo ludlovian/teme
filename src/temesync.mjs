@@ -1,17 +1,8 @@
 import equal from 'pixutil/equal'
 import { SITER, EMPTY } from './util.mjs'
-import { Teme, TemeIterator } from './teme.mjs'
+import Teme from './teme.mjs'
 
-export class TemeIteratorSync extends TemeIterator {
-  next () {
-    if (!this._item.next) this._teme._read()
-    this._item = this._item.next
-    const { value, done } = this._item
-    return { value, done }
-  }
-}
-
-export class TemeSync extends Teme {
+export default class TemeSync extends Teme {
   static fromIterable (iterable) {
     return TemeSync.fromIterator(iterable[SITER]())
   }
@@ -19,13 +10,32 @@ export class TemeSync extends Teme {
   static fromIterator (iter) {
     const t = new TemeSync()
     t._next = iter.next.bind(iter)
-    t[SITER] = () => new TemeIteratorSync(t)
+    t[SITER] = t._iterator.bind(t)
     return t
   }
 
+  _iterator () {
+    let curr = this._current
+    return {
+      next: () => {
+        if (!curr.next) curr.next = this._read()
+        curr = curr.next
+        return { value: curr.value, done: curr.done }
+      }
+    }
+  }
+
   _read () {
-    const prev = this._item
-    prev.next = this._item = this._next()
+    try {
+      const next = this._next()
+      if (next.done) next.next = next
+      return (this._current = next)
+    } catch (error) {
+      const next = { done: true }
+      next.next = this._current.next = next
+      this._current = next
+      throw error
+    }
   }
 
   get isSync () {

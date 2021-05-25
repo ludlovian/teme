@@ -1,4 +1,4 @@
-import { Teme } from './teme.mjs'
+import Teme from './teme.mjs'
 import { SITER, AITER } from './util.mjs'
 
 export default function join (...sources) {

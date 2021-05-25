@@ -1,5 +1,5 @@
-import { Teme } from './teme.mjs'
-import { TemeSync } from './temesync.mjs'
+import Teme from './teme.mjs'
+import TemeSync from './temesync.mjs'
 import Pipe from './pipe.mjs'
 import join from './join.mjs'
 import { AITER, SITER } from './util.mjs'
