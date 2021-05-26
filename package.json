@@ -1,6 +1,6 @@
 {
   "name": "teme",
-  "version": "2.2.1",
+  "version": "2.2.2",
   "description": "stream utilities",
   "main": "src/index.mjs",
   "module": "src/index.mjs",
