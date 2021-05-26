@@ -1,6 +1,7 @@
+import Pipe from 'pipe'
+
 import Teme from './teme.mjs'
 import TemeSync from './temesync.mjs'
-import Pipe from './pipe.mjs'
 import join from './join.mjs'
 import { AITER, SITER } from './util.mjs'
 
@@ -14,8 +15,8 @@ export default function teme (s) {
 teme.join = join
 
 teme.pipe = function pipe () {
-  const { next, ...pipe } = new Pipe()
-  return Object.assign(Teme.fromIterator({ next }), pipe)
+  const [reader, writer] = new Pipe()
+  return Object.assign(Teme.fromIterable(reader), writer)
 }
 
 teme.isTeme = function isTeme (t) {

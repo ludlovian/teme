@@ -18,6 +18,8 @@
     "uvu": "^0.5.1"
   },
   "dependencies": {
+    "chain": "github:ludlovian/chain",
+    "pipe": "github:ludlovian/pipe",
     "pixutil": "github:ludlovian/pixutil"
   }
 }

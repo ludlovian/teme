@@ -1,4 +1,5 @@
 import equal from 'pixutil/equal'
+import Chain from 'chain'
 
 import { AITER, SITER, EMPTY } from './util.mjs'
 
@@ -15,35 +16,26 @@ export default class Teme {
   }
 
   constructor () {
-    this._current = {}
+    this.chain = new Chain({ atEnd: () => this._read() })
   }
 
   _iterator () {
-    let curr = this._current
-    return {
-      next: async () => {
-        if (!curr.next) curr.next = this._read()
-        curr = await curr.next
-        return { value: curr.value, done: curr.done }
-      }
-    }
+    let curr = this.chain.tail
+    return { next: async () => (curr = await curr.next()) }
   }
 
   async _read () {
     try {
-      const next = await this._next()
-      if (next.done) next.next = Promise.resolve(next)
-      return (this._current = next)
+      const item = await this._next()
+      return this.chain.add(item, !!item.done)
     } catch (error) {
-      const next = { done: true }
-      next.next = this._current.next = Promise.resolve(next)
-      this._current = next
+      this.chain.add({ done: true }, true)
       throw error
     }
   }
 
   get current () {
-    const { value, done } = this._current
+    const { value, done } = this.chain.tail
     return { value, done }
   }
 

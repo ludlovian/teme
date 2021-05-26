@@ -32,7 +32,7 @@ test('closing one', async () => {
   const get1 = await read(it)
   assert.equal(get1, { value: 'foo', index: 0 })
 
-  t1.end()
+  t1.close()
   t2.write('bar')
   const get2 = await read(it)
   assert.equal(get2, { value: 'bar', index: 1 })
@@ -48,8 +48,8 @@ test('closing all', async () => {
   const get1 = await read(it)
   assert.equal(get1, { value: 'foo', index: 0 })
 
-  t1.end()
-  t2.end()
+  t1.close()
+  t2.close()
 
   const { done } = await it.next()
   assert.is(done, true)

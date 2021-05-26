@@ -15,25 +15,16 @@ export default class TemeSync extends Teme {
   }
 
   _iterator () {
-    let curr = this._current
-    return {
-      next: () => {
-        if (!curr.next) curr.next = this._read()
-        curr = curr.next
-        return { value: curr.value, done: curr.done }
-      }
-    }
+    let curr = this.chain.tail
+    return { next: () => (curr = curr.next()) }
   }
 
   _read () {
     try {
-      const next = this._next()
-      if (next.done) next.next = next
-      return (this._current = next)
+      const item = this._next()
+      return this.chain.add(item, !!item.done)
     } catch (error) {
-      const next = { done: true }
-      next.next = this._current.next = next
-      this._current = next
+      this.chain.add({ done: true }, true)
       throw error
     }
   }

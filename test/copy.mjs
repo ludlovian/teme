@@ -16,18 +16,23 @@ test('sync copy', () => {
 
 test('sync copy that throws', () => {
   let err
-  const t1 = teme((function * () {
-    yield 17
-    err = new Error('oops')
-    throw err
-  })())
+  const t1 = teme(
+    (function * () {
+      yield 17
+      err = new Error('oops')
+      throw err
+    })()
+  )
 
   const t2 = t1.copy()
   const it = t2[Symbol.iterator]()
   let item = it.next()
   assert.is(item.value, 17)
 
-  assert.throws(() => it.next(), e => e === err)
+  assert.throws(
+    () => it.next(),
+    e => e === err
+  )
 
   item = it.next()
   assert.is(item.done, true)
@@ -46,18 +51,21 @@ test('async copy', async () => {
 
 test('async copy that throws', async () => {
   let err
-  const t1 = teme((async function * () {
-    yield 17
-    err = new Error('oops')
-    throw err
-  })())
+  const t1 = teme(
+    (async function * () {
+      yield 17
+      err = new Error('oops')
+      throw err
+    })()
+  )
 
   const t2 = t1.copy()
   const it = t2[Symbol.asyncIterator]()
   let item = await it.next()
   assert.is(item.value, 17)
 
-  await it.next()
+  await it
+    .next()
     .then(assert.unreachable)
     .catch(e => assert.is(e, err))
 
