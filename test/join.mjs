@@ -71,10 +71,10 @@ test('error', async () => {
   const err = new Error('oops')
   const t1 = teme.pipe()
   const t2 = teme.pipe()
-  t2._next = async () => Promise.reject(err)
 
   const t3 = teme.join(t1, t2)
   const it = t3[Symbol.asyncIterator]()
+  t2.throw(err)
 
   await it
     .next()
