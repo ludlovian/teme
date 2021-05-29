@@ -1,7 +1,7 @@
 import equal from 'pixutil/equal'
 import Chain from 'chain'
 
-import { AITER, SITER, EMPTY } from './util.mjs'
+import { AITER, SITER, EMPTY, kIter, kChain, kRead, kNext } from './util.mjs'
 
 export default class Teme {
   static fromIterable (iterable) {
@@ -10,32 +10,35 @@ export default class Teme {
 
   static fromIterator (iter) {
     const t = new Teme()
-    t._next = iter.next.bind(iter)
-    t[AITER] = t._iterator.bind(t)
-    return t
+    return Object.defineProperties(t, {
+      [kNext]: { value: () => iter.next(), configurable: true },
+      [AITER]: { value: () => t[kIter](), configurable: true }
+    })
   }
 
   constructor () {
-    this.chain = new Chain({ atEnd: () => this._read() })
+    const chain = new Chain({ atEnd: () => this[kRead]() })
+    Object.defineProperty(this, kChain, { value: chain, configurable: true })
   }
 
-  _iterator () {
-    let curr = this.chain.tail
+  [kIter] () {
+    let curr = this[kChain].tail
     return { next: async () => (curr = await curr.next()) }
   }
 
-  async _read () {
+  async [kRead] () {
+    const chain = this[kChain]
     try {
-      const item = await this._next()
-      return this.chain.add(item, !!item.done)
+      const item = await this[kNext]()
+      return chain.add(item, !!item.done)
     } catch (error) {
-      this.chain.add({ done: true }, true)
+      chain.add({ done: true }, true)
       throw error
     }
   }
 
   get current () {
-    const { value, done } = this.chain.tail
+    const { value, done } = this[kChain].tail
     return { value, done }
   }
 

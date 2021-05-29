@@ -1,5 +1,5 @@
 import equal from 'pixutil/equal'
-import { SITER, EMPTY } from './util.mjs'
+import { SITER, EMPTY, kIter, kChain, kRead, kNext } from './util.mjs'
 import Teme from './teme.mjs'
 
 export default class TemeSync extends Teme {
@@ -9,22 +9,24 @@ export default class TemeSync extends Teme {
 
   static fromIterator (iter) {
     const t = new TemeSync()
-    t._next = iter.next.bind(iter)
-    t[SITER] = t._iterator.bind(t)
-    return t
+    return Object.defineProperties(t, {
+      [kNext]: { value: () => iter.next(), configurable: true },
+      [SITER]: { value: () => t[kIter](), configurable: true }
+    })
   }
 
-  _iterator () {
-    let curr = this.chain.tail
+  [kIter] () {
+    let curr = this[kChain].tail
     return { next: () => (curr = curr.next()) }
   }
 
-  _read () {
+  [kRead] () {
+    const chain = this[kChain]
     try {
-      const item = this._next()
-      return this.chain.add(item, !!item.done)
+      const item = this[kNext]()
+      return chain.add(item, !!item.done)
     } catch (error) {
-      this.chain.add({ done: true }, true)
+      chain.add({ done: true }, true)
       throw error
     }
   }
