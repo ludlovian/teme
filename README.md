@@ -18,6 +18,10 @@ protocols.
 This means that data evaluation is lazy and pull-oriented, not push-oriented.
 If you do not ask for data, then none is produced.
 
+Manipulation methods for synchronous teme's largely replicate the existing
+array functions (e.g. `.map` and so on).
+So they are less useful unless the sync stream is infinite.
+
 ## API
 
 ### teme
@@ -43,13 +47,19 @@ Function used to test if something is a Teme object
 
 ### teme.pipe
 
-Creates an async teme which you can write things to.
+Creates an async teme which you can write things to. This is really just a
+use of `ludlovian/pipe`.
 
 #### pipe.write(value)
 
 Writes data into the pipe
 
-#### pipe.end()
+#### pipe.throw(error)
+
+Writes an error into the pipe, which will cause the reader to throw/reject.
+This also ends the stream.
+
+#### pipe.close()
 
 Closes the pipe, ending the stream
 
