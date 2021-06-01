@@ -127,7 +127,7 @@ export default class TemeSync extends Teme {
       if (!equal(key, tgt)) return { done: true }
       const _item = item
       item = it.next()
-      if (!item.done) key = fn(item.value)
+      key = item.done ? EMPTY : fn(item.value)
       return _item
     }
   }
